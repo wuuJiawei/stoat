@@ -1,11 +1,11 @@
 class Stoat < Formula
   desc "Security-first macOS persistence inspector and launchd manager"
   homepage "https://github.com/wuuJiawei/stoat"
-  head "https://github.com/wuuJiawei/stoat.git", branch: "main"
   license "MIT"
+  head "https://github.com/wuuJiawei/stoat.git", branch: "main"
 
-  depends_on :macos
   depends_on "go" => :build
+  depends_on :macos
 
   def install
     ldflags = "-s -w -X main.version=#{version}"
