@@ -6,7 +6,7 @@ test_root="$(mktemp -d "${TMPDIR:-/tmp}/stoat-installer-test.XXXXXX")"
 trap 'rm -rf "$test_root"' EXIT
 
 export STOAT_INSTALLER_LIB_ONLY=1
-# shellcheck source=install.sh
+# shellcheck source=scripts/install.sh
 source "$repo_root/scripts/install.sh"
 
 platform_os() { printf 'Darwin\n'; }
@@ -29,7 +29,7 @@ tar -C "$release_root/stage" -czf "$release_root/stoat-v1.0.0-darwin-arm64.tar.g
 (cd "$release_root" && shasum -a 256 stoat-v1.0.0-darwin-arm64.tar.gz > checksums.txt)
 printf 'v1.0.0\n' > "$test_root/releases/latest.txt"
 
-version=""
+export version=""
 main \
     --metadata-base "file://$test_root/releases" \
     --download-base "file://$test_root/releases" \
@@ -46,7 +46,7 @@ printf 'bad\n' > "$bad_root/stage/../escape"
 tar -C "$bad_root/stage" -czf "$bad_root/stoat-v1.0.0-darwin-arm64.tar.gz" stoat ../escape
 (cd "$bad_root" && shasum -a 256 stoat-v1.0.0-darwin-arm64.tar.gz > checksums.txt)
 
-version=""
+export version=""
 if (main --version v1.0.0 --download-base "file://$test_root/bad" --checksum-base "file://$test_root/bad" --install-dir "$test_root/bin-2") >/dev/null 2>&1; then
     echo "unsafe archive was accepted" >&2
     exit 1
