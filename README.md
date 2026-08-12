@@ -35,7 +35,7 @@ Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些�
 
 ## 开发
 
-要求 Go 1.24+。
+要求 Go 1.25+。
 
 ```bash
 make verify
