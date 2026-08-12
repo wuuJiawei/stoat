@@ -2,11 +2,9 @@
 
 ## 当前状态
 
-仓库仍为 Private，以下公开一键安装地址只有在 `v1.0.0` Release 可匿名下载后才对普通用户可用。已授权的 GitHub 用户仍可使用私有 HEAD Tap；详见 [HOMEBREW.md](HOMEBREW.md)。
+仓库已公开。GitHub 一键安装依赖稳定版 Release；发布工作流会根据根目录 `VERSION` 自动创建 Tag 和 Release。
 
 ## GitHub 一键安装
-
-公开发布后：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | sh
