@@ -39,3 +39,24 @@ func TestFilterItemsUsesMinimumRiskForSuspicious(t *testing.T) {
 		t.Fatalf("expected attention and high: %#v", filtered)
 	}
 }
+
+func TestParseMutationOptions(t *testing.T) {
+	options, err := parseOptions("disable", []string{"--confirm", "token", "item"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.query != "item" || options.confirm != "token" {
+		t.Fatalf("unexpected mutation options: %#v", options)
+	}
+}
+
+func TestFindItemRejectsAmbiguousLabel(t *testing.T) {
+	items := []model.PersistenceItem{{ID: "one", Label: "same"}, {ID: "two", Label: "same"}}
+	if _, err := findItem(items, "same"); err == nil {
+		t.Fatal("expected ambiguous label error")
+	}
+	item, err := findItem(items, "two")
+	if err != nil || item.ID != "two" {
+		t.Fatalf("id lookup failed: %#v %v", item, err)
+	}
+}

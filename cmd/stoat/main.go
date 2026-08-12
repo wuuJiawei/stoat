@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/wuuJiawei/stoat/internal/action"
 	"github.com/wuuJiawei/stoat/internal/app"
+	"github.com/wuuJiawei/stoat/internal/executil"
 	"github.com/wuuJiawei/stoat/internal/exporter"
 	"github.com/wuuJiawei/stoat/internal/model"
 	"github.com/wuuJiawei/stoat/internal/risk"
@@ -64,8 +68,9 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("resolve home directory: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-	defer cancel()
+	if options.dataDir == "" {
+		options.dataDir = filepath.Join(home, "Library", "Application Support", "Stoat")
+	}
 	policy := risk.Policy{}
 	if options.rulesPath != "" {
 		policy, err = risk.LoadPolicy(options.rulesPath, time.Now())
@@ -76,6 +81,11 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 			fmt.Fprintf(stderr, "warning: ignored %d expired risk policy exception(s)\n", policy.ExpiredExceptions)
 		}
 	}
+	if command == "restore" || command == "audit" {
+		return runStoredAction(command, home, options, stdout)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 	report := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy).Scan(ctx)
 	report.ToolVersion = version
 	report.Items = filterItems(report.Items, options.category, options.risk, options.minimumRisk)
@@ -123,6 +133,8 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 			}
 		}
 		return fmt.Errorf("item not found: %s", options.query)
+	case "disable", "quarantine":
+		return runMutation(ctx, command, home, options, report.Items, stdout)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -141,6 +153,8 @@ type cliOptions struct {
 	rulesPath     string
 	beforePath    string
 	afterPath     string
+	confirm       string
+	dataDir       string
 }
 
 func parseOptions(command string, arguments []string, stderr io.Writer) (cliOptions, error) {
@@ -149,7 +163,7 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	flags.SetOutput(stderr)
 	flags.BoolVar(&options.jsonOutput, "json", false, "write JSON")
 	var riskValue *string
-	if command != "diff" {
+	if command != "diff" && command != "audit" && command != "restore" {
 		flags.BoolVar(&options.includeSystem, "system", false, "include Apple system launchd jobs")
 		flags.StringVar(&options.rulesPath, "rules", "", "risk exception policy JSON")
 		riskValue = flags.String("risk", "", "filter by risk: trusted, normal, attention, high")
@@ -165,6 +179,12 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	if command == "export" {
 		flags.StringVar(&options.format, "format", "json", "export format: json or csv")
 	}
+	if command == "disable" || command == "quarantine" || command == "restore" {
+		flags.StringVar(&options.confirm, "confirm", "", "confirmation token from the current plan")
+	}
+	if command == "disable" || command == "quarantine" || command == "restore" || command == "audit" {
+		flags.StringVar(&options.dataDir, "data-dir", "", "Stoat private state directory")
+	}
 	if err := flags.Parse(arguments); err != nil {
 		return options, err
 	}
@@ -175,11 +195,12 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 		options.beforePath, options.afterPath = flags.Arg(0), flags.Arg(1)
 		return options, nil
 	}
-	if command != "inspect" && flags.NArg() != 0 {
+	positional := command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "audit"
+	if !positional && flags.NArg() != 0 {
 		return options, fmt.Errorf("unexpected argument %q", flags.Arg(0))
 	}
-	if command == "inspect" && flags.NArg() > 1 {
-		return options, errors.New("inspect accepts exactly one ID or label")
+	if positional && flags.NArg() > 1 {
+		return options, fmt.Errorf("%s accepts at most one identifier", command)
 	}
 	if riskValue != nil && *riskValue != "" {
 		options.risk = model.RiskLevel(*riskValue)
@@ -197,12 +218,102 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	case "suspicious":
 		options.risk = model.RiskAttention
 		options.minimumRisk = true
-	case "inspect":
+	case "inspect", "disable", "quarantine", "restore", "audit":
 		if flags.NArg() > 0 {
 			options.query = flags.Arg(0)
 		}
 	}
+	if (command == "inspect" || command == "disable" || command == "quarantine" || command == "restore") && options.query == "" {
+		return options, fmt.Errorf("%s requires an identifier", command)
+	}
 	return options, nil
+}
+
+func runMutation(ctx context.Context, command, home string, options cliOptions, items []model.PersistenceItem, stdout io.Writer) error {
+	item, err := findItem(items, options.query)
+	if err != nil {
+		return err
+	}
+	runner := executil.NewExecRunner(10*time.Second, 8<<20)
+	manager := action.NewManager(home, options.dataDir, runner, strconv.Itoa(os.Getuid()))
+	plan, err := manager.Plan(action.Kind(command), item)
+	if err != nil {
+		return err
+	}
+	if options.confirm == "" {
+		return writeJSON(stdout, plan)
+	}
+	operation, actionErr := manager.Apply(ctx, plan, options.confirm)
+	if err := writeJSON(stdout, operation); err != nil && actionErr == nil {
+		return err
+	}
+	return actionErr
+}
+
+func runStoredAction(command, home string, options cliOptions, stdout io.Writer) error {
+	runner := executil.NewExecRunner(10*time.Second, 8<<20)
+	manager := action.NewManager(home, options.dataDir, runner, strconv.Itoa(os.Getuid()))
+	if command == "audit" {
+		if options.query != "" {
+			operation, err := manager.Read(options.query)
+			if err != nil {
+				return err
+			}
+			return writeJSON(stdout, operation)
+		}
+		operations, err := manager.List()
+		if err != nil {
+			return err
+		}
+		table := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
+		fmt.Fprintln(table, "ID\tSTATUS\tACTION\tLABEL\tCREATED")
+		for _, operation := range operations {
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", operation.ID, operation.Status, operation.Plan.Action, operation.Plan.Label, operation.CreatedAt.Format(time.RFC3339))
+		}
+		return table.Flush()
+	}
+	plan, err := manager.PlanRestore(options.query)
+	if err != nil {
+		return err
+	}
+	if options.confirm == "" {
+		return writeJSON(stdout, plan)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	operation, restoreErr := manager.Restore(ctx, plan, options.confirm)
+	if err := writeJSON(stdout, operation); err != nil && restoreErr == nil {
+		return err
+	}
+	return restoreErr
+}
+
+func findItem(items []model.PersistenceItem, query string) (model.PersistenceItem, error) {
+	for _, item := range items {
+		if item.ID == query {
+			return item, nil
+		}
+	}
+	var match *model.PersistenceItem
+	for index := range items {
+		if items[index].Label != query {
+			continue
+		}
+		if match != nil {
+			return model.PersistenceItem{}, fmt.Errorf("label %q is ambiguous; use the item id", query)
+		}
+		match = &items[index]
+	}
+	if match == nil {
+		return model.PersistenceItem{}, fmt.Errorf("item not found: %s", query)
+	}
+	return *match, nil
+}
+
+func writeJSON(writer io.Writer, value any) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 func runDiff(options cliOptions, stdout io.Writer) error {
@@ -220,6 +331,10 @@ func runDiff(options cliOptions, stdout io.Writer) error {
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(diff)
 	}
+	return printDiff(stdout, diff)
+}
+
+func printDiff(stdout io.Writer, diff snapshotfile.Diff) error {
 	table := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(table, "CHANGE\tTYPE\tLABEL\tFIELDS")
 	for _, change := range diff.Changes {
@@ -240,7 +355,7 @@ func validRisk(level model.RiskLevel) bool {
 
 func knownCommand(command string) bool {
 	switch command {
-	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff":
+	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff", "disable", "quarantine", "restore", "audit":
 		return true
 	default:
 		return false
@@ -301,7 +416,13 @@ Usage:
   stoat export --format json|csv --output <file> [--force]
   stoat snapshot --output <file> [--rules policy.json]
   stoat diff [--json] <before> <after>
+  stoat disable|quarantine <id-or-label> [--confirm TOKEN]
+  stoat restore <operation-id> [--confirm TOKEN]
+  stoat audit [operation-id]
   stoat version
+
+State-changing commands only support launchd jobs. Running without --confirm prints a
+plan and confirmation token; the token is valid only for the unchanged configuration.
 
 --system includes Apple-owned /System/Library launchd jobs.`)
 }

@@ -2,7 +2,7 @@
 
 ## 目标
 
-Stoat V1 是本地、只读、可解释的 macOS Persistence Inspector。可靠性优先于扫描数量；无法确认的数据标记为未知，不推断为安全或恶意。
+Stoat 是本地、可解释的 macOS Persistence Inspector。扫描默认只读；launchd 状态修改通过独立 action 层完成。可靠性优先于扫描数量；无法确认的数据标记为未知，不推断为安全或恶意。
 
 ## 数据流
 
@@ -63,14 +63,15 @@ Enricher 按固定顺序执行，每个阶段使用有界并发且局部失败�
 3. 可执行命令及路径在代码中固定，不读取环境变量覆盖。
 4. 配置文件必须是普通文件且受大小限制。
 5. 所有外部命令和完整扫描均有 deadline。
-6. V1 没有写入系统状态的能力。
+6. Collector、Parser、Enricher 和 Risk 层没有写入系统状态的能力。
+7. 唯一写入边界是 action 层，必须经过 plan、备份、确认、执行、验证和审计。
 
 ## 演进约束
 
 - 运行状态：作为独立 enrichment 加入，不能侵入 parser。
 - App Attribution：以 Bundle ID、Team ID、可执行路径建立证据链，不按 label 猜测。
 - 新持久化来源：新增 Collector + Parser，不能在 UI 写来源特例。
-- 禁用/恢复：只能作为独立 action 层；先快照、校验、操作、验证，绝不直接删除 plist。
+- 禁用/恢复：位于独立 action 层；先摘要校验和备份，再操作、验证，失败自动回滚。
 - 原生 GUI：复用 app/model/risk，不改扫描协议；JSON schema 需要版本号后再承诺稳定。
 
 ## 阶段计划
@@ -89,4 +90,6 @@ launchctl runtime、App Attribution、JSON/CSV 原子导出、macOS 13–15 fixt
 
 Apple Developer ID 签名和公证属于后续发布基础设施工作，需要项目所有者证书，不在仓库中保存凭据。
 
-禁用/恢复不进入前三个里程碑，需单独安全评审。
+### v0.5（已完成）
+
+launchd 停用、隔离、恢复、确认令牌、备份、失败回滚、恢复验证和操作审计。BTM 与 cron 保持只读。

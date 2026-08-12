@@ -1,8 +1,8 @@
 # Stoat
 
-Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
+Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前为 `v0.3.0`，最低目标系统为 macOS 13。
+当前为 `v0.5.0`，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -21,10 +21,16 @@ Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些�
 - 每条风险 finding 具有稳定规则 ID、分数、证据和可审计的屏蔽状态
 - 严格 JSON 风险例外策略，仅允许按确定 item ID 屏蔽指定正向规则
 - Homebrew HEAD Formula、双架构 Release、SHA-256 校验和与 Sigstore 无密钥签名
+- launchd 项停用、隔离与恢复；BTM 和 cron 保持只读
+- 配置摘要绑定的双阶段确认令牌，配置变化后旧令牌自动失效
+- 操作前备份、失败回滚、恢复验证与私有操作审计
 
 ## 安全边界
 
-- 只读：没有删除、禁用、提权和配置写入代码
+- 状态修改只支持 launchd；不修改 BTM 私有数据库或重写 crontab
+- 不调用 `sudo`；系统级项目只允许已是 root 的进程操作
+- `/System/Library` 永久禁止修改，配置路径、目录符号链接和权限均需验证
+- 停用或隔离前保存受保护备份，失败时回滚并记录结果
 - 不调用 Shell：参数直接传给 `exec.CommandContext`
 - 系统命令使用绝对路径白名单，防止 `PATH` 劫持
 - 外部命令 3 秒超时、输出大小受限，整体扫描 45 秒超时
@@ -60,11 +66,16 @@ stoat snapshot --output before.json
 stoat diff --json before.json after.json
 stoat scan --rules policy.json
 stoat scan --system
+stoat disable <id-or-label>
+stoat disable <id-or-label> --confirm <token>
+stoat quarantine <id-or-label>
+stoat restore <operation-id>
+stoat audit [operation-id]
 ```
 
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
 
-风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)。
+风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)。
 
 ## 安装
 
@@ -78,8 +89,8 @@ brew install --HEAD stoat
 版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。
 
 ```bash
-cosign verify-blob stoat-v0.3.0-darwin-arm64.tar.gz \
-  --bundle stoat-v0.3.0-darwin-arm64.tar.gz.sigstore.json \
+cosign verify-blob stoat-v0.5.0-darwin-arm64.tar.gz \
+  --bundle stoat-v0.5.0-darwin-arm64.tar.gz.sigstore.json \
   --certificate-identity-regexp='^https://github.com/wuuJiawei/stoat/.github/workflows/release.yml@refs/tags/v[0-9].*$' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
@@ -105,7 +116,7 @@ testdata               固定测试样本
 - `launchctl` 的诊断文本不是稳定公共数据格式；解析器仅读取已知字段并保持未知字段兼容。
 - 无法从可执行路径或来源 Bundle ID 建立证据链的项目会明确显示为 `Unattributed`。
 - 快照 diff 关注持久化配置、签名、归属、文件属性和禁用状态，不将 PID、运行/停止切换视为配置变更。
-- V1 不接受任何“禁用/删除”功能；后续若增加，必须先设计快照、恢复和显式确认。
+- BTM 和 cron 修改仍不开放；前者依赖私有数据库，后者需安全保留整份 crontab 的语义和并发修改。
 
 ## 设计来源
 
