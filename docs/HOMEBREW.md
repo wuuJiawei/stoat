@@ -22,6 +22,8 @@ SSH 方式要求本机 GitHub SSH Key 已有仓库读取权限。`brew services 
 
 ## 暂不能直接进入 homebrew/core
 
-当前仓库为 Private，且 `v0.8.0` 尚不是稳定 `v1.0`。Homebrew 官方要求可验证的不可变稳定源码、兼容许可证、在其 CI 矩阵构建测试，并要求新项目具备一定知名度（例如至少 75 stars、30 forks 或 30 watchers）。现阶段不满足直接提交条件。
+当前源码已达到 `v1.0.0` 功能边界，但仓库仍为 Private，也尚未形成可匿名下载的稳定 Release。Homebrew 官方要求可验证的不可变稳定源码、兼容许可证、在其 CI 矩阵构建测试，并要求新项目具备一定知名度（例如至少 75 stars、30 forks 或 30 watchers）。现阶段不满足直接提交条件。
+
+发布状态统一记录在 [ROADMAP.md](ROADMAP.md)，其他安装方式见 [INSTALLATION.md](INSTALLATION.md)。
 
 官方依据：[Acceptable Formulae](https://docs.brew.sh/Acceptable-Formulae)、[How to Create and Maintain a Tap](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap)。
