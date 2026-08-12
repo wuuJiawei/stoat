@@ -87,13 +87,13 @@ stoat diagnose <id-or-label> --last 1h
 
 ## 安装
 
-公开 Release 上线后，可直接安装到 `~/.local/bin`：
+可直接安装到 `~/.local/bin`：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | sh
 ```
 
-`lighting.pub` 和国内镜像入口的部署结构、校验边界与当前状态见 [安装文档](docs/INSTALLATION.md)。仓库目前仍为 Private，因此普通用户暂时无法匿名使用上述 GitHub 命令。
+`lighting.pub` 和国内镜像入口的部署结构、校验边界与当前状态见 [安装文档](docs/INSTALLATION.md)。
 
 从当前私有仓库使用 Homebrew 构建安装：
 
@@ -103,7 +103,7 @@ brew install --HEAD stoat
 brew services start stoat
 ```
 
-版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。仓库仍为 Private，只能作为已授权用户的私有 Tap 使用；公开发布条件见 [docs/HOMEBREW.md](docs/HOMEBREW.md)。
+根目录 `VERSION` 变更合并到 `main` 后会自动创建版本 Tag，并生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证；Homebrew 发布条件见 [docs/HOMEBREW.md](docs/HOMEBREW.md)。
 
 ```bash
 cosign verify-blob stoat-v1.0.0-darwin-arm64.tar.gz \

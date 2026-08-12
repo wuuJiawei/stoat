@@ -24,7 +24,8 @@
 - [ ] **`stoat.lighting.pub` 上线**：配置 DNS、HTTPS 和静态托管；发布 `install.sh`、`install-cn.sh`、`latest.txt`、`checksums.txt` 与 Release 归档。
 - [ ] **国内镜像节点上线**：选择或自建可信镜像；镜像只分发归档，校验和仍优先从 `stoat.lighting.pub` 获取。
 - [ ] **Apple Developer ID 签名与 notarization**：提供 Apple Developer 账号、证书及 CI Secret 后启用；Sigstore 不能替代 Gatekeeper 公证。
-- [ ] **公开 `v1.0.0` Release**：当前仓库为 Private，普通用户无法匿名下载；转为 Public 或另建公开分发仓库后创建 Tag / Release。
+- [x] **公开仓库**：源码与安装脚本已可匿名访问。
+- [x] **自动稳定版发布**：根目录 `VERSION` 变更合并到 `main` 后自动创建 Tag、Release 和双架构资产。
 
 ## 发布原则
 
