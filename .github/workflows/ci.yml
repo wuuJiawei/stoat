@@ -36,6 +36,7 @@ jobs:
           go-version: '1.24.x'
           cache: true
       - run: go test ./...
+      - run: ruby -c Formula/stoat.rb
       - run: go build -trimpath -o stoat ./cmd/stoat
       - run: ./stoat scan --json > report.json
       - run: jq -e '.schema_version == 1 and (.items | type == "array")' report.json

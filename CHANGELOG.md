@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.0
+
+- 增加严格校验的扫描快照和新增、删除、配置变更 diff。
+- 风险规则增加稳定 ID、分数与证据，TUI / JSON 展示同一结果。
+- 增加按 item ID + rule ID 精确匹配、可过期且保留审计记录的风险例外策略。
+- 增加 Homebrew HEAD Formula、双架构 Release、校验和与 Sigstore 无密钥签名。
+
 ## v0.2.0
 
 - 增加 launchctl 加载、运行、PID、退出码和禁用状态检查。

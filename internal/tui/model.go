@@ -96,7 +96,10 @@ func runtimeStatus(item model.PersistenceItem) string {
 		return "Disabled"
 	}
 	if item.Runtime.Running {
-		return fmt.Sprintf("Running · PID %d", item.Runtime.PID)
+		if item.Runtime.PID > 0 {
+			return fmt.Sprintf("Running · PID %d", item.Runtime.PID)
+		}
+		return "Running"
 	}
 	if item.Runtime.Loaded {
 		return "Loaded · " + emptyDash(item.Runtime.State)

@@ -14,6 +14,10 @@ import (
 )
 
 func NewDefaultScanner(home string, includeAppleSystem bool) *Scanner {
+	return NewDefaultScannerWithPolicy(home, includeAppleSystem, risk.Policy{})
+}
+
+func NewDefaultScannerWithPolicy(home string, includeAppleSystem bool, policy risk.Policy) *Scanner {
 	runner := executil.NewExecRunner(3*time.Second, 8<<20)
 	collectors := []collector.Collector{
 		collector.NewLoginItems(runner),
@@ -25,5 +29,5 @@ func NewDefaultScanner(home string, includeAppleSystem bool) *Scanner {
 		attribution.NewInspector(runner),
 		signing.NewInspector(runner),
 	}
-	return NewScannerWithEnrichers(collectors, enrichers, risk.NewEngine())
+	return NewScannerWithEnrichers(collectors, enrichers, risk.NewEngine().WithPolicy(policy))
 }

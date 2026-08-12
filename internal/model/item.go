@@ -90,6 +90,15 @@ type AttributionInfo struct {
 	Evidence   []string `json:"evidence,omitempty"`
 }
 
+type RiskFinding struct {
+	RuleID            string   `json:"rule_id"`
+	Score             int      `json:"score"`
+	Reason            string   `json:"reason"`
+	Evidence          []string `json:"evidence,omitempty"`
+	Suppressed        bool     `json:"suppressed"`
+	SuppressionReason string   `json:"suppression_reason,omitempty"`
+}
+
 type PersistenceItem struct {
 	ID               string          `json:"id"`
 	Label            string          `json:"label"`
@@ -119,6 +128,7 @@ type PersistenceItem struct {
 	Attribution      AttributionInfo `json:"attribution"`
 	RiskScore        int             `json:"risk_score"`
 	RiskLevel        RiskLevel       `json:"risk_level"`
+	RiskFindings     []RiskFinding   `json:"risk_findings,omitempty"`
 	RiskReasons      []string        `json:"risk_reasons,omitempty"`
 }
 

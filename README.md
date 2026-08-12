@@ -2,7 +2,7 @@
 
 Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前为 `v0.2.0`，最低目标系统为 macOS 13。
+当前为 `v0.3.0`，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -17,6 +17,10 @@ Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些�
 - 基于 `.app` 路径与 `Info.plist` 证据关联所属应用，不根据 label 猜测
 - JSON / CSV 安全导出；文件以 `0600` 原子写入且默认拒绝覆盖
 - macOS 13 / 14 / 15 脱敏 BTM fixture 与解析性能基准
+- 扫描快照与新增、删除、配置变更对比；忽略 PID 等易变运行字段
+- 每条风险 finding 具有稳定规则 ID、分数、证据和可审计的屏蔽状态
+- 严格 JSON 风险例外策略，仅允许按确定 item ID 屏蔽指定正向规则
+- Homebrew HEAD Formula、双架构 Release、SHA-256 校验和与 Sigstore 无密钥签名
 
 ## 安全边界
 
@@ -52,10 +56,33 @@ stoat suspicious
 stoat inspect <id-or-label>
 stoat export --format json --output stoat-report.json
 stoat export --format csv --output stoat-report.csv
+stoat snapshot --output before.json
+stoat diff --json before.json after.json
+stoat scan --rules policy.json
 stoat scan --system
 ```
 
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
+
+风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)。
+
+## 安装
+
+从当前私有仓库使用 Homebrew 构建安装：
+
+```bash
+brew tap wuuJiawei/stoat https://github.com/wuuJiawei/stoat
+brew install --HEAD stoat
+```
+
+版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。
+
+```bash
+cosign verify-blob stoat-v0.3.0-darwin-arm64.tar.gz \
+  --bundle stoat-v0.3.0-darwin-arm64.tar.gz.sigstore.json \
+  --certificate-identity-regexp='^https://github.com/wuuJiawei/stoat/.github/workflows/release.yml@refs/tags/v[0-9].*$' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
 
 ## 项目结构
 
@@ -77,6 +104,7 @@ testdata               固定测试样本
 - `sfltool dumpbtm` 属于系统诊断输出，不是稳定公共 API；解析器忽略未知字段并保留兼容性，但仍需在不同 macOS 版本建立 fixture 回归库。
 - `launchctl` 的诊断文本不是稳定公共数据格式；解析器仅读取已知字段并保持未知字段兼容。
 - 无法从可执行路径或来源 Bundle ID 建立证据链的项目会明确显示为 `Unattributed`。
+- 快照 diff 关注持久化配置、签名、归属、文件属性和禁用状态，不将 PID、运行/停止切换视为配置变更。
 - V1 不接受任何“禁用/删除”功能；后续若增加，必须先设计快照、恢复和显式确认。
 
 ## 设计来源

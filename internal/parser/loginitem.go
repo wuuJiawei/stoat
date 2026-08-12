@@ -31,7 +31,7 @@ func ParseBTMDump(data []byte) []model.PersistenceItem {
 			categories = model.AddCategory(categories, model.CategoryBackground)
 		}
 		appPath := ""
-		if strings.Contains(strings.ToLower(path), ".app") {
+		if strings.HasSuffix(strings.ToLower(path), ".app") {
 			appPath = path
 		}
 		item := model.PersistenceItem{
