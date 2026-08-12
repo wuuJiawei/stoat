@@ -33,6 +33,7 @@ func NewExecRunner(timeout time.Duration, maxOutput int) *ExecRunner {
 			"codesign":  "/usr/bin/codesign",
 			"crontab":   "/usr/bin/crontab",
 			"launchctl": "/bin/launchctl",
+			"log":       "/usr/bin/log",
 			"plutil":    "/usr/bin/plutil",
 			"sfltool":   "/usr/bin/sfltool",
 			"spctl":     "/usr/sbin/spctl",

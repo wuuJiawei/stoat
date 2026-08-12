@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.0
+
+- 增加保守轮询监控；扫描出现 warning 时不更新基线，避免把采集失败误报为删除。
+- 增加最多 1000 条私有变更事件、`watch` JSON 流和 `changes` 历史查询。
+- 增加 launchd 运行状态、退出码、风险结果与 Unified Log 联合诊断。
+- Homebrew Formula 增加 service 定义，并补充 Private Tap、公开 Tap 与 homebrew/core 发布边界。
+
+## v0.5.0
+
+- 增加 launchd 停用、隔离、恢复和操作审计；BTM 与 cron 保持只读。
+- 增加配置 SHA-256 绑定的双阶段确认，配置变化后拒绝执行旧计划。
+- 增加私有备份、路径与符号链接保护、失败回滚和恢复后验证。
+- 系统项目要求调用者已是 root，工具自身不调用 `sudo`。
+
 ## v0.3.0
 
 - 增加严格校验的扫描快照和新增、删除、配置变更 diff。
