@@ -19,23 +19,13 @@ var (
 
 func (m Model) listView() string {
 	var output strings.Builder
-	counts := make(map[model.Category]int)
-	suspicious := 0
-	for _, item := range m.items {
-		for _, category := range item.Categories {
-			counts[category]++
-		}
-		if item.RiskLevel == model.RiskHigh || item.RiskLevel == model.RiskAttention {
-			suspicious++
-		}
-	}
-	output.WriteString(titleStyle.Render("Stoat · macOS Persistence Inspector"))
+	selected := sectionDefinitions[m.menuCursor]
+	output.WriteString(titleStyle.Render("Stoat · " + selected.title))
 	output.WriteString("\n")
-	output.WriteString(mutedStyle.Render(fmt.Sprintf("All %d  Startup %d  Scheduled %d  Background %d  Suspicious %d",
-		len(m.items), counts[model.CategoryStartup], counts[model.CategoryScheduled], counts[model.CategoryBackground], suspicious)))
+	output.WriteString(mutedStyle.Render(fmt.Sprintf("%d item(s) · %s", len(m.items), selected.description)))
 	output.WriteString("\n\n")
 	if len(m.items) == 0 {
-		output.WriteString("No persistence items found.\n")
+		output.WriteString("No items found in this category.\n")
 	}
 	visible := m.height - 7
 	if visible < 5 {
@@ -63,8 +53,43 @@ func (m Model) listView() string {
 	if len(m.warnings) > 0 {
 		output.WriteString("\n" + attentionStyle.Render(fmt.Sprintf("%d partial scan warning(s)", len(m.warnings))))
 	}
-	output.WriteString("\n" + mutedStyle.Render("↑↓/jk navigate  Enter detail  q quit"))
+	output.WriteString("\n" + mutedStyle.Render("↑↓/jk navigate  Enter detail  Esc categories  q quit"))
 	return output.String()
+}
+
+func (m Model) menuView() string {
+	var output strings.Builder
+	output.WriteString(titleStyle.Render("Stoat · macOS Persistence Inspector"))
+	output.WriteString("\n")
+	output.WriteString(mutedStyle.Render("Choose what you want to inspect"))
+	output.WriteString("\n\n")
+	for index, section := range sectionDefinitions {
+		marker := "  "
+		style := lipgloss.NewStyle()
+		if index == m.menuCursor {
+			marker = "› "
+			style = selectedStyle
+		}
+		count := ""
+		if m.loaded {
+			count = fmt.Sprintf("%3d", len(filterSection(m.allItems, section.id)))
+		}
+		line := fmt.Sprintf("%d  %-20s %s", index+1, section.title, count)
+		output.WriteString(marker + style.Render(line) + "\n")
+		output.WriteString("   " + mutedStyle.Render(section.description) + "\n")
+	}
+	if m.loaded && len(m.warnings) > 0 {
+		output.WriteString("\n" + attentionStyle.Render(fmt.Sprintf("%d partial scan warning(s)", len(m.warnings))))
+	}
+	output.WriteString("\n" + mutedStyle.Render("↑↓/jk navigate  1–5/Enter open  q quit"))
+	return output.String()
+}
+
+func (m Model) loadingView() string {
+	selected := sectionDefinitions[m.menuCursor]
+	return titleStyle.Render("Stoat · "+selected.title) + "\n\n" +
+		"Scanning macOS persistence items…\n\n" +
+		mutedStyle.Render("q quit")
 }
 
 func (m Model) detailView(item model.PersistenceItem) string {
@@ -100,7 +125,7 @@ func (m Model) detailView(item model.PersistenceItem) string {
 			output.WriteString(mutedStyle.Render("      "+evidence) + "\n")
 		}
 	}
-	output.WriteString("\n" + mutedStyle.Render("Esc/h back  q quit"))
+	output.WriteString("\n" + mutedStyle.Render("Esc/h back to "+sectionDefinitions[m.menuCursor].title+"  q quit"))
 	return output.String()
 }
 
