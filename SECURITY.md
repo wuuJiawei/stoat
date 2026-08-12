@@ -20,6 +20,8 @@ Scanning is read-only. State-changing commands support launchd agents and daemon
 - System launchd actions require the caller to already be root; Stoat never elevates itself.
 - Monitoring snapshots and events are stored in private directories; incomplete scans never advance the baseline.
 - Unified Log queries use an escaped predicate argument without a shell, bounded time/output and bounded parsed entries.
+- The release installer requires HTTPS, verifies SHA-256, allowlists archive entries, rejects symlink targets, installs atomically, and never invokes `sudo`.
+- A GitHub acceleration proxy is only a transport source; trusted checksums should be delivered independently through `stoat.lighting.pub`.
 
 ## Reporting
 
@@ -28,3 +30,5 @@ Do not include credentials, personal paths, complete crontabs, or private applic
 ## State-changing features
 
 See [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md) for the action threat model, protected paths, confirmation protocol and recovery procedure.
+
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for installer and mirror trust boundaries.

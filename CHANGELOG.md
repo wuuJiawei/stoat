@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.0
+
+- 增加 GitHub Release、`stoat.lighting.pub` 和可配置 GitHub 代理的一键安装方案。
+- 安装器自动识别 Apple Silicon / Intel，强制 HTTPS、SHA-256 校验、归档路径白名单和原子替换，默认不使用 `sudo`。
+- Release 同步发布安装脚本和 `latest.txt`，CI 增加 ShellCheck 与离线安装集成测试。
+- 固化 v1 功能边界、安装文档、发布待办和 Homebrew / 域名 / Apple 公证的外部依赖。
+
 ## v0.8.0
 
 - 增加保守轮询监控；扫描出现 warning 时不更新基线，避免把采集失败误报为删除。

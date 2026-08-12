@@ -13,6 +13,7 @@ Stoat 是面向普通开发者和高级用户的 macOS 自动运行项检查器�
 - 不存在 Shell 注入、PATH 劫持、无限输出和无限等待。
 - launchd 状态修改必须可确认、可审计、可回滚，且永久拒绝 Apple 系统路径。
 - CI 执行 format、vet、race test 及 Darwin arm64/amd64 交叉构建。
+- GitHub Release 安装器必须验证 HTTPS 来源、SHA-256、归档路径和二进制版本，默认不提权。
 
 ## 非目标
 
@@ -20,6 +21,7 @@ Stoat 是面向普通开发者和高级用户的 macOS 自动运行项检查器�
 - 修改 BTM、cron 或 Apple `/System/Library` 任务。
 - 逆向修改 Background Task Management 数据库。
 - V1 请求 root、Full Disk Access 或 Endpoint Security entitlement。
+- 自动修改用户的 Shell 配置或静默写入系统级安装目录。
 
 ## 决策原则
 

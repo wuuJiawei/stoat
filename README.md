@@ -2,7 +2,7 @@
 
 Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前为 `v0.8.0`，最低目标系统为 macOS 13。
+当前代码进入 `v1.0.0` 稳定版阶段，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -27,6 +27,8 @@ Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：�
 - 轮询式变更监控、最多 1000 条私有变更记录和 JSON 事件流
 - launchd 状态、退出码、风险证据与 macOS Unified Log 联合诊断
 - Homebrew service 定义，可通过 `brew services` 持续运行监控
+- 安全一键安装：自动识别 arm64 / amd64、验证 SHA-256、限制归档路径并原子安装
+- GitHub、`stoat.lighting.pub` 与可配置国内 GitHub 加速镜像三种分发入口
 
 ## 安全边界
 
@@ -81,9 +83,17 @@ stoat diagnose <id-or-label> --last 1h
 
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
 
-风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)，监控行为见 [docs/MONITORING.md](docs/MONITORING.md)。
+风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)，监控行为见 [docs/MONITORING.md](docs/MONITORING.md)。功能完成度与仍依赖外部条件的发布事项见 [路线图与待办](docs/ROADMAP.md)。
 
 ## 安装
+
+公开 Release 上线后，可直接安装到 `~/.local/bin`：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | sh
+```
+
+`lighting.pub` 和国内镜像入口的部署结构、校验边界与当前状态见 [安装文档](docs/INSTALLATION.md)。仓库目前仍为 Private，因此普通用户暂时无法匿名使用上述 GitHub 命令。
 
 从当前私有仓库使用 Homebrew 构建安装：
 
@@ -96,8 +106,8 @@ brew services start stoat
 版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。仓库仍为 Private，只能作为已授权用户的私有 Tap 使用；公开发布条件见 [docs/HOMEBREW.md](docs/HOMEBREW.md)。
 
 ```bash
-cosign verify-blob stoat-v0.8.0-darwin-arm64.tar.gz \
-  --bundle stoat-v0.8.0-darwin-arm64.tar.gz.sigstore.json \
+cosign verify-blob stoat-v1.0.0-darwin-arm64.tar.gz \
+  --bundle stoat-v1.0.0-darwin-arm64.tar.gz.sigstore.json \
   --certificate-identity-regexp='^https://github.com/wuuJiawei/stoat/.github/workflows/release.yml@refs/tags/v[0-9].*$' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```

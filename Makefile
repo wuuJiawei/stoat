@@ -1,4 +1,4 @@
-.PHONY: all build clean format test vet verify release-arm64 release-amd64
+.PHONY: all build clean format test test-installer vet verify release-arm64 release-amd64
 
 GO ?= go
 BIN_DIR := bin
@@ -16,6 +16,9 @@ format:
 
 test:
 	$(GO) test -race ./...
+
+test-installer:
+	bash scripts/install_test.sh
 
 vet:
 	$(GO) vet ./...

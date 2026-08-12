@@ -20,6 +20,8 @@ jobs:
       - run: gofmt -l . | tee /tmp/unformatted && test ! -s /tmp/unformatted
       - run: go vet ./...
       - run: go test -race ./...
+      - run: shellcheck scripts/*.sh
+      - run: bash scripts/install_test.sh
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./cmd/stoat
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./cmd/stoat
 
@@ -38,6 +40,7 @@ jobs:
       - run: go test ./...
       - run: ruby -c Formula/stoat.rb
       - run: brew style Formula/stoat.rb
+      - run: bash scripts/install_test.sh
       - run: go build -trimpath -o stoat ./cmd/stoat
       - run: ./stoat scan --json > report.json
       - run: jq -e '.schema_version == 1 and (.items | type == "array")' report.json
