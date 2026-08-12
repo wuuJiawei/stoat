@@ -15,8 +15,9 @@ Scanning is read-only. State-changing commands support launchd agents and daemon
 - Snapshot and policy files must be bounded regular files; JSON schemas reject unknown fields and trailing values.
 - Risk exceptions require an exact item ID and rule ID, expire explicitly, and remain visible in audit output.
 - Export and snapshot files use mode `0600`, temporary-file writes, and atomic rename; overwrite requires `--force`.
-- launchd actions require a confirmation token bound to the current item, domain and configuration SHA-256.
+- launchd actions require confirmation bound to the current item, domain, configuration SHA-256 and observed runtime state.
 - Action state uses private directories, pre-operation backups, no-follow file opens, rollback and post-action verification.
+- Application uninstall requires an attributed top-level `.app`, binds its `Info.plist` digest, moves it to a collision-safe Trash path, and never deletes related user data.
 - System launchd actions require the caller to already be root; Stoat never elevates itself.
 - Monitoring snapshots and events are stored in private directories; incomplete scans never advance the baseline.
 - Unified Log queries use an escaped predicate argument without a shell, bounded time/output and bounded parsed entries.

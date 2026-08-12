@@ -10,19 +10,38 @@ import (
 )
 
 type Model struct {
-	allItems   []model.PersistenceItem
-	items      []model.PersistenceItem
-	warnings   []collector.Warning
-	loader     Loader
-	menuCursor int
-	cursor     int
-	screen     screen
-	loaded     bool
-	width      int
-	height     int
+	allItems      []model.PersistenceItem
+	items         []model.PersistenceItem
+	warnings      []collector.Warning
+	loader        Loader
+	action        ActionHandler
+	menuCursor    int
+	cursor        int
+	actionCursor  int
+	actions       []actionDefinition
+	pending       actionDefinition
+	confirmText   string
+	resultMessage string
+	resultError   string
+	screen        screen
+	loaded        bool
+	width         int
+	height        int
 }
 
 type Loader func() ([]model.PersistenceItem, []collector.Warning)
+
+type ActionKind string
+
+const (
+	ActionDisable    ActionKind = "disable"
+	ActionEnable     ActionKind = "enable"
+	ActionQuarantine ActionKind = "quarantine"
+	ActionRemove     ActionKind = "remove"
+	ActionUninstall  ActionKind = "uninstall"
+)
+
+type ActionHandler func(ActionKind, model.PersistenceItem) (string, error)
 
 type screen uint8
 
@@ -31,6 +50,10 @@ const (
 	screenLoading
 	screenList
 	screenDetail
+	screenActions
+	screenConfirm
+	screenApplying
+	screenResult
 )
 
 type section uint8
@@ -62,6 +85,20 @@ type loadedMsg struct {
 	warnings []collector.Warning
 }
 
+type actionDefinition struct {
+	kind        ActionKind
+	title       string
+	description string
+	confirmWord string
+}
+
+type actionCompletedMsg struct {
+	message  string
+	err      error
+	items    []model.PersistenceItem
+	warnings []collector.Warning
+}
+
 func New(items []model.PersistenceItem, warnings []collector.Warning) Model {
 	return Model{
 		allItems: append([]model.PersistenceItem(nil), items...),
@@ -75,6 +112,10 @@ func NewWithLoader(loader Loader) Model {
 	return Model{loader: loader, screen: screenMenu}
 }
 
+func NewWithActions(loader Loader, handler ActionHandler) Model {
+	return Model{loader: loader, action: handler, screen: screenMenu}
+}
+
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
@@ -86,9 +127,23 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.warnings = append([]collector.Warning(nil), value.warnings...)
 		m.loaded = true
 		m.showSelectedSection()
+	case actionCompletedMsg:
+		m.resultMessage = value.message
+		m.resultError = ""
+		if value.err != nil {
+			m.resultError = value.err.Error()
+		} else {
+			m.allItems = append([]model.PersistenceItem(nil), value.items...)
+			m.warnings = append([]collector.Warning(nil), value.warnings...)
+			m.items = filterSection(m.allItems, sectionDefinitions[m.menuCursor].id)
+			if m.cursor >= len(m.items) && m.cursor > 0 {
+				m.cursor--
+			}
+		}
+		m.screen = screenResult
 	case tea.KeyMsg:
 		key := value.String()
-		if key == "q" || key == "ctrl+c" {
+		if key == "ctrl+c" || (key == "q" && m.screen != screenApplying) {
 			return m, tea.Quit
 		}
 		switch m.screen {
@@ -126,7 +181,62 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case screenDetail:
-			if key == "esc" || key == "backspace" || key == "left" || key == "h" {
+			switch key {
+			case "esc", "backspace", "left", "h":
+				m.screen = screenList
+			case "a":
+				if m.action != nil && len(m.items) > 0 {
+					m.actions = availableActions(m.items[m.cursor])
+					m.actionCursor = 0
+					m.screen = screenActions
+				}
+			}
+		case screenActions:
+			switch key {
+			case "esc", "backspace", "left", "h":
+				m.screen = screenDetail
+			case "up", "k":
+				if m.actionCursor > 0 {
+					m.actionCursor--
+				}
+			case "down", "j":
+				if m.actionCursor+1 < len(m.actions) {
+					m.actionCursor++
+				}
+			case "enter", "right", "l":
+				if len(m.actions) > 0 {
+					m.pending = m.actions[m.actionCursor]
+					m.confirmText = ""
+					m.screen = screenConfirm
+				}
+			}
+		case screenConfirm:
+			switch key {
+			case "esc":
+				m.screen = screenActions
+			case "backspace":
+				characters := []rune(m.confirmText)
+				if len(characters) > 0 {
+					m.confirmText = string(characters[:len(characters)-1])
+				}
+			case "y":
+				if m.pending.confirmWord == "" {
+					return m.startAction()
+				}
+			case "enter":
+				if m.pending.confirmWord != "" && m.confirmText == m.pending.confirmWord {
+					return m.startAction()
+				}
+			default:
+				if m.pending.confirmWord != "" && len(value.Runes) > 0 {
+					candidate := strings.ToUpper(m.confirmText + string(value.Runes))
+					if strings.HasPrefix(m.pending.confirmWord, candidate) {
+						m.confirmText = candidate
+					}
+				}
+			}
+		case screenResult:
+			if key == "enter" || key == "esc" || key == "backspace" || key == "left" || key == "h" {
 				m.screen = screenList
 			}
 		}
@@ -145,9 +255,65 @@ func (m Model) View() string {
 			return m.listView()
 		}
 		return m.detailView(m.items[m.cursor])
+	case screenActions:
+		return m.actionsView()
+	case screenConfirm:
+		return m.confirmView()
+	case screenApplying:
+		return m.applyingView()
+	case screenResult:
+		return m.resultView()
 	default:
 		return m.menuView()
 	}
+}
+
+func (m Model) startAction() (tea.Model, tea.Cmd) {
+	if m.action == nil || len(m.items) == 0 {
+		return m, nil
+	}
+	item := m.items[m.cursor]
+	handler := m.action
+	loader := m.loader
+	kind := m.pending.kind
+	m.screen = screenApplying
+	return m, func() tea.Msg {
+		message, err := handler(kind, item)
+		if err != nil {
+			return actionCompletedMsg{message: message, err: err}
+		}
+		var items []model.PersistenceItem
+		var warnings []collector.Warning
+		if loader != nil {
+			items, warnings = loader()
+		}
+		return actionCompletedMsg{message: message, items: items, warnings: warnings}
+	}
+}
+
+func availableActions(item model.PersistenceItem) []actionDefinition {
+	if item.Source != model.SourceLaunchd || (item.Type != model.TypeLaunchAgent && item.Type != model.TypeLaunchDaemon) {
+		return nil
+	}
+	state := actionDefinition{kind: ActionDisable, title: "Disable", description: "Stop the job and prevent it from loading"}
+	if item.Runtime.Disabled {
+		state = actionDefinition{kind: ActionEnable, title: "Enable", description: "Enable and load the job"}
+	}
+	actions := []actionDefinition{
+		state,
+		{kind: ActionQuarantine, title: "Quarantine", description: "Disable and move the configuration aside"},
+		{kind: ActionRemove, title: "Remove startup item", description: "Delete the configuration; Stoat keeps a restorable backup", confirmWord: "REMOVE"},
+	}
+	appPath := item.Attribution.AppPath
+	if appPath == "" {
+		appPath = item.AppPath
+	}
+	if strings.HasSuffix(strings.ToLower(appPath), ".app") {
+		actions = append(actions, actionDefinition{
+			kind: ActionUninstall, title: "Uninstall application", description: "Remove the startup item and move its attributed app to Trash", confirmWord: "UNINSTALL",
+		})
+	}
+	return actions
 }
 
 func (m Model) openSelectedSection() (tea.Model, tea.Cmd) {

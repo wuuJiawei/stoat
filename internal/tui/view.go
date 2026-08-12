@@ -125,7 +125,79 @@ func (m Model) detailView(item model.PersistenceItem) string {
 			output.WriteString(mutedStyle.Render("      "+evidence) + "\n")
 		}
 	}
-	output.WriteString("\n" + mutedStyle.Render("Esc/h back to "+sectionDefinitions[m.menuCursor].title+"  q quit"))
+	footer := "Esc/h back to " + sectionDefinitions[m.menuCursor].title + "  q quit"
+	if m.action != nil {
+		footer = "a actions  " + footer
+	}
+	output.WriteString("\n" + mutedStyle.Render(footer))
+	return output.String()
+}
+
+func (m Model) actionsView() string {
+	var output strings.Builder
+	item := m.items[m.cursor]
+	output.WriteString(titleStyle.Render("Manage · " + item.Label))
+	output.WriteString("\n")
+	output.WriteString(mutedStyle.Render("Choose an action. Every change is verified and audited."))
+	output.WriteString("\n\n")
+	if len(m.actions) == 0 {
+		output.WriteString("This item is read-only. Stoat only changes launchd agents and daemons.\n")
+	}
+	for index, action := range m.actions {
+		marker := "  "
+		style := lipgloss.NewStyle()
+		if index == m.actionCursor {
+			marker = "› "
+			style = selectedStyle
+		}
+		output.WriteString(marker + style.Render(action.title) + "\n")
+		output.WriteString("   " + mutedStyle.Render(action.description) + "\n")
+	}
+	output.WriteString("\n" + mutedStyle.Render("↑↓/jk navigate  Enter select  Esc back"))
+	return output.String()
+}
+
+func (m Model) confirmView() string {
+	item := m.items[m.cursor]
+	var output strings.Builder
+	output.WriteString(titleStyle.Render("Confirm · " + m.pending.title))
+	output.WriteString("\n\n")
+	output.WriteString(field("Item", item.Label) + "\n")
+	output.WriteString(field("Source", emptyDash(item.ConfigPath)) + "\n")
+	if m.pending.kind == ActionUninstall {
+		appPath := item.Attribution.AppPath
+		if appPath == "" {
+			appPath = item.AppPath
+		}
+		output.WriteString(field("Application", emptyDash(appPath)) + "\n")
+	}
+	output.WriteString("\n" + m.pending.description + "\n\n")
+	if m.pending.confirmWord == "" {
+		output.WriteString(attentionStyle.Render("Press y to confirm") + "\n")
+	} else {
+		output.WriteString(attentionStyle.Render("Type "+m.pending.confirmWord+" and press Enter") + "\n")
+		output.WriteString("> " + m.confirmText + "\n")
+	}
+	output.WriteString("\n" + mutedStyle.Render("Esc cancel"))
+	return output.String()
+}
+
+func (m Model) applyingView() string {
+	return titleStyle.Render("Stoat · Applying "+m.pending.title) + "\n\n" +
+		"Verifying current state, creating a backup, and applying the action…\n\n" +
+		mutedStyle.Render("Do not close this terminal")
+}
+
+func (m Model) resultView() string {
+	var output strings.Builder
+	if m.resultError != "" {
+		output.WriteString(highStyle.Render("Action failed") + "\n\n")
+		output.WriteString(m.resultError + "\n")
+	} else {
+		output.WriteString(trustedStyle.Render("Action completed") + "\n\n")
+		output.WriteString(m.resultMessage + "\n")
+	}
+	output.WriteString("\n" + mutedStyle.Render("Enter/Esc back to list"))
 	return output.String()
 }
 
