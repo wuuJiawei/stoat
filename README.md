@@ -2,7 +2,7 @@
 
 Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前代码进入 `v1.0.0` 稳定版阶段，最低目标系统为 macOS 13。
+当前版本为 `v1.1.0`，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -21,7 +21,8 @@ Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：�
 - 每条风险 finding 具有稳定规则 ID、分数、证据和可审计的屏蔽状态
 - 严格 JSON 风险例外策略，仅允许按确定 item ID 屏蔽指定正向规则
 - Homebrew HEAD Formula、双架构 Release、SHA-256 校验和与 Sigstore 无密钥签名
-- launchd 项停用、隔离与恢复；BTM 和 cron 保持只读
+- TUI 内管理 launchd 项：停用、启用、隔离、删除启动项、卸载已归属应用和恢复
+- 删除启动项保留私有备份；卸载应用只移动到废纸篓，不做不可逆删除
 - 配置摘要绑定的双阶段确认令牌，配置变化后旧令牌自动失效
 - 操作前备份、失败回滚、恢复验证与私有操作审计
 - 轮询式变更监控、最多 1000 条私有变更记录和 JSON 事件流
@@ -35,7 +36,7 @@ Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：�
 - 状态修改只支持 launchd；不修改 BTM 私有数据库或重写 crontab
 - 不调用 `sudo`；系统级项目只允许已是 root 的进程操作
 - `/System/Library` 永久禁止修改，配置路径、目录符号链接和权限均需验证
-- 停用或隔离前保存受保护备份，失败时回滚并记录结果
+- 所有 launchd 操作前保存受保护备份，失败时恢复配置、运行状态和应用位置
 - 不调用 Shell：参数直接传给 `exec.CommandContext`
 - 系统命令使用绝对路径白名单，防止 `PATH` 劫持
 - 外部命令 3 秒超时、输出大小受限，整体扫描 45 秒超时
@@ -73,7 +74,11 @@ stoat scan --rules policy.json
 stoat scan --system
 stoat disable <id-or-label>
 stoat disable <id-or-label> --confirm <token>
+stoat enable <id-or-label>
 stoat quarantine <id-or-label>
+stoat remove <id-or-label>
+stoat delete <id-or-label> # remove 的别名
+stoat uninstall <id-or-label>
 stoat restore <operation-id>
 stoat audit [operation-id]
 stoat watch --interval 30s
@@ -81,7 +86,7 @@ stoat changes --limit 50
 stoat diagnose <id-or-label> --last 1h
 ```
 
-直接运行 `stoat` 会先显示分类菜单。使用方向键或 `1`–`5` 选择启动项、定时任务、后台项、风险项或全部项目；`Enter` 进入，`Esc` 逐级返回。首次选择后执行扫描，后续切换分类复用同一次扫描结果。
+直接运行 `stoat` 会先显示分类菜单。使用方向键或 `1`–`5` 选择分类，`Enter` 查看详情，按 `a` 打开操作菜单，`Esc` 逐级返回。删除启动项需输入 `REMOVE`，卸载应用需输入 `UNINSTALL`；操作成功后自动重新扫描。
 
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
 
@@ -128,7 +133,7 @@ internal/diagnostics   运行状态与 Unified Log 诊断
 internal/parser        launchd / cron / BTM 解析
 internal/signing       文件属性与代码签名
 internal/risk          纯函数规则引擎
-internal/tui           Bubble Tea 只读界面
+internal/tui           Bubble Tea 分类、详情与安全操作界面
 testdata               固定测试样本
 ```
 
@@ -139,6 +144,7 @@ testdata               固定测试样本
 - 无法从可执行路径或来源 Bundle ID 建立证据链的项目会明确显示为 `Unattributed`。
 - 快照 diff 关注持久化配置、签名、归属、文件属性和禁用状态，不将 PID、运行/停止切换视为配置变更。
 - BTM 和 cron 修改仍不开放；前者依赖私有数据库，后者需安全保留整份 crontab 的语义和并发修改。
+- 应用卸载仅支持归属明确且直接位于 `~/Applications` 或 `/Applications` 的 `.app`；只移动 App Bundle 与对应启动配置，不猜测或删除 Application Support、缓存和用户数据。
 
 ## 设计来源
 

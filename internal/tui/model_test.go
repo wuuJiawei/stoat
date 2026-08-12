@@ -74,6 +74,60 @@ func TestNavigationReturnsFromDetailToListThenMenu(t *testing.T) {
 	}
 }
 
+func TestDetailActionMenuConfirmsRemoveBeforeRunning(t *testing.T) {
+	item := model.PersistenceItem{
+		ID: "agent", Label: "Example Agent", Source: model.SourceLaunchd,
+		Type: model.TypeLaunchAgent, ConfigPath: "/tmp/example.plist",
+		Categories: []model.Category{model.CategoryStartup},
+	}
+	runs := 0
+	m := NewWithActions(func() ([]model.PersistenceItem, []collector.Warning) {
+		return []model.PersistenceItem{item}, nil
+	}, func(kind ActionKind, selected model.PersistenceItem) (string, error) {
+		runs++
+		if kind != ActionRemove || selected.ID != item.ID {
+			t.Fatalf("unexpected action: %s %#v", kind, selected)
+		}
+		return "removed", nil
+	})
+	loading, command := updateModel(t, m, key(tea.KeyEnter))
+	list, _ := updateModel(t, loading, command())
+	detail, _ := updateModel(t, list, key(tea.KeyEnter))
+	actions, _ := updateModel(t, detail, runeKey('a'))
+	if actions.screen != screenActions || len(actions.actions) != 3 {
+		t.Fatalf("expected launchd actions: %#v", actions.actions)
+	}
+	actions, _ = updateModel(t, actions, key(tea.KeyDown))
+	actions, _ = updateModel(t, actions, key(tea.KeyDown))
+	confirm, _ := updateModel(t, actions, key(tea.KeyEnter))
+	if confirm.screen != screenConfirm || runs != 0 {
+		t.Fatalf("remove ran before confirmation: screen=%d runs=%d", confirm.screen, runs)
+	}
+	for _, character := range "REMOVE" {
+		confirm, _ = updateModel(t, confirm, runeKey(character))
+	}
+	applying, command := updateModel(t, confirm, key(tea.KeyEnter))
+	if applying.screen != screenApplying || command == nil || runs != 0 {
+		t.Fatalf("expected deferred action: screen=%d runs=%d", applying.screen, runs)
+	}
+	result, _ := updateModel(t, applying, command())
+	if result.screen != screenResult || result.resultError != "" || runs != 1 {
+		t.Fatalf("unexpected action result: %#v runs=%d", result, runs)
+	}
+}
+
+func TestAvailableActionsOffersEnableForDisabledJobAndUninstallForAttributedApp(t *testing.T) {
+	item := model.PersistenceItem{
+		Source: model.SourceLaunchd, Type: model.TypeLaunchAgent,
+		Runtime:     model.RuntimeInfo{Disabled: true},
+		Attribution: model.AttributionInfo{AppPath: "/Applications/Example.app"},
+	}
+	actions := availableActions(item)
+	if len(actions) != 4 || actions[0].kind != ActionEnable || actions[3].kind != ActionUninstall {
+		t.Fatalf("unexpected actions: %#v", actions)
+	}
+}
+
 func testItems() []model.PersistenceItem {
 	return []model.PersistenceItem{
 		{ID: "startup", Label: "Login Helper", Categories: []model.Category{model.CategoryStartup}, RiskLevel: model.RiskNormal},

@@ -51,6 +51,16 @@ func TestParseMutationOptions(t *testing.T) {
 	}
 }
 
+func TestParseDeleteAliasOptions(t *testing.T) {
+	options, err := parseOptions("delete", []string{"item", "--confirm", "token"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.query != "item" || options.confirm != "token" || !knownCommand("delete") {
+		t.Fatalf("unexpected delete options: %#v", options)
+	}
+}
+
 func TestParseOptionsAfterIdentifier(t *testing.T) {
 	options, err := parseOptions("diagnose", []string{"item", "--json", "--last", "2m", "--limit", "5"}, &bytes.Buffer{})
 	if err != nil {

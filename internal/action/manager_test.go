@@ -102,6 +102,206 @@ func TestQuarantineMovesAndRestoresConfiguration(t *testing.T) {
 	}
 }
 
+func TestEnableLoadsDisabledJob(t *testing.T) {
+	manager, item, runner := testManager(t)
+	item.Runtime.Disabled = true
+	item.Runtime.Loaded = false
+	runner.disabled = true
+	runner.loaded = false
+	plan, err := manager.Plan(Enable, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operation.Status != StatusSucceeded || runner.disabled || !runner.loaded {
+		t.Fatalf("unexpected enabled state: %#v runner=%#v", operation, runner)
+	}
+	if _, err := manager.PlanRestore(operation.ID); err == nil {
+		t.Fatal("enable operation must not produce a restore plan")
+	}
+}
+
+func TestEnableFailureRestoresDisabledState(t *testing.T) {
+	manager, item, runner := testManager(t)
+	item.Runtime.Disabled = true
+	item.Runtime.Loaded = false
+	runner.disabled = true
+	runner.loaded = false
+	runner.failVerb = "bootstrap"
+	plan, err := manager.Plan(Enable, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err == nil {
+		t.Fatal("expected bootstrap failure")
+	}
+	if operation.Status != StatusRolledBack || !runner.disabled || runner.loaded {
+		t.Fatalf("enable state was not rolled back: %#v runner=%#v", operation, runner)
+	}
+}
+
+func TestRemoveDeletesConfigurationAndRestores(t *testing.T) {
+	manager, item, _ := testManager(t)
+	plan, err := manager.Plan(Remove, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(item.ConfigPath); !os.IsNotExist(err) {
+		t.Fatalf("configuration still exists: %v", err)
+	}
+	restorePlan, err := manager.PlanRestore(operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Restore(context.Background(), restorePlan, restorePlan.ConfirmationToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(item.ConfigPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemoveRestorePreservesOriginallyDisabledState(t *testing.T) {
+	manager, item, runner := testManager(t)
+	item.Runtime.Disabled = true
+	item.Runtime.Loaded = false
+	runner.disabled = true
+	runner.loaded = false
+	plan, err := manager.Plan(Remove, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restorePlan, err := manager.PlanRestore(operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Restore(context.Background(), restorePlan, restorePlan.ConfirmationToken); err != nil {
+		t.Fatal(err)
+	}
+	if !runner.disabled || runner.loaded {
+		t.Fatalf("original disabled state was not restored: %#v", runner)
+	}
+}
+
+func TestUninstallMovesAttributedAppToTrashAndRestores(t *testing.T) {
+	manager, item, _ := testManager(t)
+	appPath := filepath.Join(manager.home, "Applications", "Example.app")
+	if err := os.MkdirAll(filepath.Join(appPath, "Contents"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("example"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	item.Attribution = model.AttributionInfo{Checked: true, AppPath: appPath}
+	plan, err := manager.Plan(Uninstall, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(appPath); !os.IsNotExist(err) {
+		t.Fatalf("application still exists: %v", err)
+	}
+	if _, err := os.Stat(operation.AppTrashPath); err != nil {
+		t.Fatal(err)
+	}
+	restorePlan, err := manager.PlanRestore(operation.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Restore(context.Background(), restorePlan, restorePlan.ConfirmationToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(appPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUninstallCollisionRollsBackConfigurationAndRuntime(t *testing.T) {
+	manager, item, runner := testManager(t)
+	appPath := filepath.Join(manager.home, "Applications", "Example.app")
+	if err := os.MkdirAll(filepath.Join(appPath, "Contents"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("example"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	item.Attribution = model.AttributionInfo{Checked: true, AppPath: appPath}
+	collision := filepath.Join(manager.home, ".Trash", "Example.app.stoat-"+strings.Repeat("a", 32))
+	if err := os.MkdirAll(collision, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := manager.Plan(Uninstall, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err == nil {
+		t.Fatal("expected Trash collision failure")
+	}
+	if operation.Status != StatusRolledBack || runner.disabled || !runner.loaded {
+		t.Fatalf("runtime was not rolled back: %#v runner=%#v", operation, runner)
+	}
+	if _, err := os.Stat(item.ConfigPath); err != nil {
+		t.Fatalf("configuration was not restored: %v", err)
+	}
+	if _, err := os.Stat(appPath); err != nil {
+		t.Fatalf("application was moved despite collision: %v", err)
+	}
+}
+
+func TestUninstallRestoreRejectsChangedApplicationInTrash(t *testing.T) {
+	manager, item, _ := testManager(t)
+	appPath := filepath.Join(manager.home, "Applications", "Example.app")
+	if err := os.MkdirAll(filepath.Join(appPath, "Contents"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appPath, "Contents", "Info.plist"), []byte("example"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	item.Attribution = model.AttributionInfo{Checked: true, AppPath: appPath}
+	plan, err := manager.Plan(Uninstall, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(operation.AppTrashPath, "Contents", "Info.plist"), []byte("changed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.PlanRestore(operation.ID); err == nil || !strings.Contains(err.Error(), "identity check") {
+		t.Fatalf("expected changed application rejection, got %v", err)
+	}
+}
+
+func TestApplyRejectsLaunchdStateChangedAfterPlan(t *testing.T) {
+	manager, item, runner := testManager(t)
+	plan, err := manager.Plan(Disable, item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.disabled = true
+	if _, err := manager.Apply(context.Background(), plan, plan.ConfirmationToken); err == nil || !strings.Contains(err.Error(), "state changed") {
+		t.Fatalf("expected stale-state rejection, got %v", err)
+	}
+}
+
 func TestFailureRollsBackOriginalState(t *testing.T) {
 	manager, item, runner := testManager(t)
 	plan, err := manager.Plan(Disable, item)

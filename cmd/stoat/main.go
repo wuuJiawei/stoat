@@ -97,11 +97,25 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	}
 	if command == "tui" {
 		scanner := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy)
-		interactive := tui.NewWithLoader(func() ([]model.PersistenceItem, []collector.Warning) {
+		loader := func() ([]model.PersistenceItem, []collector.Warning) {
 			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 			defer cancel()
 			report := scanner.Scan(ctx)
 			return filterItems(report.Items, options.category, options.risk, options.minimumRisk), report.Warnings
+		}
+		manager := action.NewManager(home, options.dataDir, executil.NewExecRunner(10*time.Second, 8<<20), strconv.Itoa(os.Getuid()))
+		interactive := tui.NewWithActions(loader, func(kind tui.ActionKind, item model.PersistenceItem) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			plan, planErr := manager.Plan(action.Kind(kind), item)
+			if planErr != nil {
+				return "", planErr
+			}
+			operation, applyErr := manager.Apply(ctx, plan, plan.ConfirmationToken)
+			if applyErr != nil {
+				return "", applyErr
+			}
+			return fmt.Sprintf("%s completed · operation %s", kind, operation.ID), nil
 		})
 		program := tea.NewProgram(interactive, tea.WithAltScreen())
 		_, err = program.Run()
@@ -152,7 +166,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 			}
 		}
 		return fmt.Errorf("item not found: %s", options.query)
-	case "disable", "quarantine":
+	case "disable", "enable", "quarantine", "remove", "delete", "uninstall":
 		return runMutation(ctx, command, home, options, report.Items, stdout)
 	case "diagnose":
 		return runDiagnose(ctx, options, report.Items, stdout)
@@ -209,10 +223,10 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	if command == "export" {
 		flags.StringVar(&options.format, "format", "json", "export format: json or csv")
 	}
-	if command == "disable" || command == "quarantine" || command == "restore" {
+	if command == "disable" || command == "enable" || command == "quarantine" || command == "remove" || command == "delete" || command == "uninstall" || command == "restore" {
 		flags.StringVar(&options.confirm, "confirm", "", "confirmation token from the current plan")
 	}
-	if command == "disable" || command == "quarantine" || command == "restore" || command == "audit" || command == "watch" || command == "changes" {
+	if command == "disable" || command == "enable" || command == "quarantine" || command == "remove" || command == "delete" || command == "uninstall" || command == "restore" || command == "audit" || command == "watch" || command == "changes" {
 		flags.StringVar(&options.dataDir, "data-dir", "", "Stoat private state directory")
 	}
 	if command == "watch" || command == "changes" {
@@ -262,12 +276,12 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	case "suspicious":
 		options.risk = model.RiskAttention
 		options.minimumRisk = true
-	case "inspect", "disable", "quarantine", "restore", "audit", "diagnose":
+	case "inspect", "disable", "enable", "quarantine", "remove", "delete", "uninstall", "restore", "audit", "diagnose":
 		if flags.NArg() > 0 {
 			options.query = flags.Arg(0)
 		}
 	}
-	if (command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "diagnose") && options.query == "" {
+	if (command == "inspect" || command == "disable" || command == "enable" || command == "quarantine" || command == "remove" || command == "delete" || command == "uninstall" || command == "restore" || command == "diagnose") && options.query == "" {
 		return options, fmt.Errorf("%s requires an identifier", command)
 	}
 	if command == "watch" && (options.interval < 5*time.Second || options.interval > 24*time.Hour) {
@@ -284,7 +298,7 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 
 func acceptsIdentifier(command string) bool {
 	switch command {
-	case "inspect", "disable", "quarantine", "restore", "audit", "diagnose":
+	case "inspect", "disable", "enable", "quarantine", "remove", "delete", "uninstall", "restore", "audit", "diagnose":
 		return true
 	default:
 		return false
@@ -298,7 +312,11 @@ func runMutation(ctx context.Context, command, home string, options cliOptions, 
 	}
 	runner := executil.NewExecRunner(10*time.Second, 8<<20)
 	manager := action.NewManager(home, options.dataDir, runner, strconv.Itoa(os.Getuid()))
-	plan, err := manager.Plan(action.Kind(command), item)
+	kind := action.Kind(command)
+	if command == "delete" {
+		kind = action.Remove
+	}
+	plan, err := manager.Plan(kind, item)
 	if err != nil {
 		return err
 	}
@@ -535,7 +553,7 @@ func validRisk(level model.RiskLevel) bool {
 
 func knownCommand(command string) bool {
 	switch command {
-	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff", "disable", "quarantine", "restore", "audit", "watch", "changes", "diagnose":
+	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff", "disable", "enable", "quarantine", "remove", "delete", "uninstall", "restore", "audit", "watch", "changes", "diagnose":
 		return true
 	default:
 		return false
@@ -598,14 +616,14 @@ func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, `Stoat inspects macOS login, scheduled, and background persistence.
 
 Usage:
-  stoat                         open the read-only TUI
+  stoat                         open the interactive manager
   stoat scan [--json] [--risk LEVEL] [--rules policy.json] [--system]
   stoat startup|scheduled|background|suspicious [--json]
   stoat inspect <id-or-label>
   stoat export --format json|csv --output <file> [--force]
   stoat snapshot --output <file> [--rules policy.json]
   stoat diff [--json] <before> <after>
-  stoat disable|quarantine <id-or-label> [--confirm TOKEN]
+  stoat disable|enable|quarantine|remove|delete|uninstall <id-or-label> [--confirm TOKEN]
   stoat restore <operation-id> [--confirm TOKEN]
   stoat audit [operation-id]
   stoat watch [--once] [--interval 30s] [--json]
@@ -613,8 +631,9 @@ Usage:
   stoat diagnose <id-or-label> [--last 1h] [--limit 100] [--json]
   stoat version
 
-State-changing commands only support launchd jobs. Running without --confirm prints a
-plan and confirmation token; the token is valid only for the unchanged configuration.
+State-changing commands only support launchd jobs. Remove keeps a restorable backup;
+uninstall moves an attributed app bundle to Trash. Running without --confirm prints a
+plan and confirmation token valid only for the unchanged configuration and state.
 
 --system includes Apple-owned /System/Library launchd jobs.`)
 }
