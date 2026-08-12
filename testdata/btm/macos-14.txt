@@ -1,0 +1,14 @@
+#1:
+UUID: REDACTED-14-1
+Name: Example Helper
+Developer Name: Example Inc.
+Type: background application
+Identifier: com.example.helper
+URL: file:///Applications/Example.app
+
+#2:
+UUID: REDACTED-14-2
+Name: Example Agent
+Type: agent
+Identifier: com.example.agent
+URL: file:///Library/LaunchAgents/com.example.agent.plist

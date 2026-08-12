@@ -2,7 +2,7 @@
 
 Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前为 `v0.1.0` 雏形，最低目标系统为 macOS 13。
+当前为 `v0.2.0`，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -13,6 +13,10 @@ Stoat 是一个只读的 macOS 持久化任务检查器，用于回答：哪些�
 - 可解释的风险评分，不输出“病毒/安全”结论
 - Bubble Tea TUI、表格输出和 JSON 输出
 - 默认不扫描 Apple `/System/Library` 基准项，可用 `--system` 显式加入
+- 读取 launchctl 实时加载、运行、PID、退出码和禁用状态
+- 基于 `.app` 路径与 `Info.plist` 证据关联所属应用，不根据 label 猜测
+- JSON / CSV 安全导出；文件以 `0600` 原子写入且默认拒绝覆盖
+- macOS 13 / 14 / 15 脱敏 BTM fixture 与解析性能基准
 
 ## 安全边界
 
@@ -46,6 +50,8 @@ stoat scheduled
 stoat background
 stoat suspicious
 stoat inspect <id-or-label>
+stoat export --format json --output stoat-report.json
+stoat export --format csv --output stoat-report.csv
 stoat scan --system
 ```
 
@@ -69,7 +75,8 @@ testdata               固定测试样本
 ## 当前限制
 
 - `sfltool dumpbtm` 属于系统诊断输出，不是稳定公共 API；解析器忽略未知字段并保留兼容性，但仍需在不同 macOS 版本建立 fixture 回归库。
-- launchctl 实时状态、App 归属关联和导出文件将在下一阶段补齐。
+- `launchctl` 的诊断文本不是稳定公共数据格式；解析器仅读取已知字段并保持未知字段兼容。
+- 无法从可执行路径或来源 Bundle ID 建立证据链的项目会明确显示为 `Unattributed`。
 - V1 不接受任何“禁用/删除”功能；后续若增加，必须先设计快照、恢复和显式确认。
 
 ## 设计来源

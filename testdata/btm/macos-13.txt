@@ -1,0 +1,7 @@
+#1:
+UUID: REDACTED-13-1
+Name: Example Sync
+Developer Name: Example Inc.
+Type: legacy login item
+Identifier: com.example.sync
+URL: file:///Applications/Example%20Sync.app

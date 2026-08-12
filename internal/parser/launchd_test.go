@@ -33,6 +33,19 @@ func TestParseLaunchdJSON(t *testing.T) {
 	}
 }
 
+func BenchmarkParseLaunchdJSON(b *testing.B) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "launchd", "com.example.worker.json"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for range b.N {
+		if _, err := ParseLaunchdJSON(data, "/Library/LaunchAgents/com.example.worker.plist", model.TypeLaunchAgent, model.ScopeSystem); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestParseLaunchdCalendarDictionary(t *testing.T) {
 	data := []byte(`{"Label":"test","StartCalendarInterval":{"Hour":3,"Minute":0}}`)
 	item, err := ParseLaunchdJSON(data, "/tmp/test.plist", model.TypeLaunchAgent, model.ScopeUser)

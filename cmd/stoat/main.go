@@ -15,6 +15,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/wuuJiawei/stoat/internal/app"
+	"github.com/wuuJiawei/stoat/internal/exporter"
 	"github.com/wuuJiawei/stoat/internal/model"
 	"github.com/wuuJiawei/stoat/internal/tui"
 )
@@ -59,6 +60,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	report := app.NewDefaultScanner(home, options.includeSystem).Scan(ctx)
+	report.ToolVersion = version
 	report.Items = filterItems(report.Items, options.category, options.risk, options.minimumRisk)
 
 	switch command {
@@ -77,6 +79,16 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 			fmt.Fprintln(stderr, "warning:", warning.Error())
 		}
 		return nil
+	case "export":
+		format, formatErr := exporter.ParseFormat(options.format)
+		if formatErr != nil {
+			return formatErr
+		}
+		write := func(writer io.Writer) error { return exporter.Write(writer, format, report) }
+		if options.output == "-" {
+			return write(stdout)
+		}
+		return exporter.WriteFile(options.output, options.force, write)
 	case "inspect":
 		if options.query == "" {
 			return errors.New("inspect requires an ID or label")
@@ -101,6 +113,9 @@ type cliOptions struct {
 	minimumRisk   bool
 	category      model.Category
 	query         string
+	format        string
+	output        string
+	force         bool
 }
 
 func parseOptions(command string, arguments []string, stderr io.Writer) (cliOptions, error) {
@@ -109,6 +124,11 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	flags.SetOutput(stderr)
 	flags.BoolVar(&options.includeSystem, "system", false, "include Apple system launchd jobs")
 	flags.BoolVar(&options.jsonOutput, "json", false, "write JSON")
+	if command == "export" {
+		flags.StringVar(&options.format, "format", "json", "export format: json or csv")
+		flags.StringVar(&options.output, "output", "-", "output file or - for stdout")
+		flags.BoolVar(&options.force, "force", false, "replace an existing regular file")
+	}
 	riskValue := flags.String("risk", "", "filter by risk: trusted, normal, attention, high")
 	if err := flags.Parse(arguments); err != nil {
 		return options, err
@@ -198,6 +218,7 @@ Usage:
   stoat scan [--json] [--risk LEVEL] [--system]
   stoat startup|scheduled|background|suspicious [--json]
   stoat inspect <id-or-label>
+	stoat export --format json|csv --output <file> [--force]
   stoat version
 
 --system includes Apple-owned /System/Library launchd jobs.`)

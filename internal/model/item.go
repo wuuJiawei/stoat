@@ -70,38 +70,56 @@ type SignatureInfo struct {
 	Signer      string `json:"signer,omitempty"`
 }
 
+type RuntimeInfo struct {
+	Checked      bool   `json:"checked"`
+	Domain       string `json:"domain,omitempty"`
+	Loaded       bool   `json:"loaded"`
+	Running      bool   `json:"running"`
+	State        string `json:"state,omitempty"`
+	PID          int    `json:"pid,omitempty"`
+	LastExitCode *int   `json:"last_exit_code,omitempty"`
+	Disabled     bool   `json:"disabled"`
+}
+
+type AttributionInfo struct {
+	Checked    bool     `json:"checked"`
+	AppPath    string   `json:"app_path,omitempty"`
+	BundleID   string   `json:"bundle_id,omitempty"`
+	Name       string   `json:"name,omitempty"`
+	Confidence string   `json:"confidence,omitempty"`
+	Evidence   []string `json:"evidence,omitempty"`
+}
+
 type PersistenceItem struct {
-	ID               string        `json:"id"`
-	Label            string        `json:"label"`
-	Type             ItemType      `json:"type"`
-	Scope            Scope         `json:"scope"`
-	Source           SourceType    `json:"source"`
-	Categories       []Category    `json:"categories"`
-	Program          string        `json:"program,omitempty"`
-	Arguments        []string      `json:"arguments,omitempty"`
-	Command          string        `json:"command,omitempty"`
-	WorkingDir       string        `json:"working_dir,omitempty"`
-	RunAtLoad        bool          `json:"run_at_load"`
-	KeepAlive        bool          `json:"keep_alive"`
-	Schedules        []Schedule    `json:"schedules,omitempty"`
-	WatchPaths       []string      `json:"watch_paths,omitempty"`
-	QueueDirs        []string      `json:"queue_directories,omitempty"`
-	Loaded           bool          `json:"loaded"`
-	Running          bool          `json:"running"`
-	PID              int           `json:"pid,omitempty"`
-	Disabled         bool          `json:"disabled"`
-	ConfigPath       string        `json:"config_path,omitempty"`
-	AppPath          string        `json:"app_path,omitempty"`
-	BundleID         string        `json:"bundle_id,omitempty"`
-	User             string        `json:"user,omitempty"`
-	Exists           bool          `json:"exists"`
-	Owner            string        `json:"owner,omitempty"`
-	Mode             string        `json:"mode,omitempty"`
-	WritableByOthers bool          `json:"writable_by_others"`
-	Signature        SignatureInfo `json:"signature"`
-	RiskScore        int           `json:"risk_score"`
-	RiskLevel        RiskLevel     `json:"risk_level"`
-	RiskReasons      []string      `json:"risk_reasons,omitempty"`
+	ID               string          `json:"id"`
+	Label            string          `json:"label"`
+	Type             ItemType        `json:"type"`
+	Scope            Scope           `json:"scope"`
+	Source           SourceType      `json:"source"`
+	Categories       []Category      `json:"categories"`
+	Program          string          `json:"program,omitempty"`
+	Arguments        []string        `json:"arguments,omitempty"`
+	Command          string          `json:"command,omitempty"`
+	WorkingDir       string          `json:"working_dir,omitempty"`
+	RunAtLoad        bool            `json:"run_at_load"`
+	KeepAlive        bool            `json:"keep_alive"`
+	Schedules        []Schedule      `json:"schedules,omitempty"`
+	WatchPaths       []string        `json:"watch_paths,omitempty"`
+	QueueDirs        []string        `json:"queue_directories,omitempty"`
+	ConfigPath       string          `json:"config_path,omitempty"`
+	AppPath          string          `json:"app_path,omitempty"`
+	BundleID         string          `json:"bundle_id,omitempty"`
+	User             string          `json:"user,omitempty"`
+	Exists           bool            `json:"exists"`
+	Owner            string          `json:"owner,omitempty"`
+	Mode             string          `json:"mode,omitempty"`
+	WritableByOthers bool            `json:"writable_by_others"`
+	Signature        SignatureInfo   `json:"signature"`
+	Runtime          RuntimeInfo     `json:"runtime"`
+	Attribution      AttributionInfo `json:"attribution"`
+	RiskScore        int             `json:"risk_score"`
+	RiskLevel        RiskLevel       `json:"risk_level"`
+	RiskReasons      []string        `json:"risk_reasons,omitempty"`
 }
 
 func StableID(source SourceType, configPath, label string) string {

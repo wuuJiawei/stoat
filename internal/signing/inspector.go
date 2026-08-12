@@ -20,6 +20,8 @@ type Inspector struct {
 
 func NewInspector(runner executil.Runner) *Inspector { return &Inspector{runner: runner} }
 
+func (i *Inspector) Name() string { return "file-signature" }
+
 func (i *Inspector) Enrich(ctx context.Context, item *model.PersistenceItem) error {
 	if item.Program == "" || !strings.HasPrefix(item.Program, "/") {
 		return nil

@@ -76,6 +76,8 @@ func (m Model) detailView(item model.PersistenceItem) string {
 	output.WriteString(field("Categories", categories(item)) + "\n")
 	output.WriteString(field("Schedule", schedule(item)) + "\n")
 	output.WriteString(field("Executable", emptyDash(item.Program)) + "\n")
+	output.WriteString(field("Application", attribution(item)) + "\n")
+	output.WriteString(field("Runtime", runtimeStatus(item)) + "\n")
 	output.WriteString(field("Source", emptyDash(item.ConfigPath)) + "\n")
 	output.WriteString(field("Signature", signature(item)) + "\n\n")
 	riskLabel := fmt.Sprintf("%d · %s", item.RiskScore, strings.ToUpper(string(item.RiskLevel)))

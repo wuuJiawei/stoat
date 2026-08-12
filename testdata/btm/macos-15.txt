@@ -1,0 +1,8 @@
+#1:
+UUID: REDACTED-15-1
+Name: Example Updater
+Disposition: [enabled, allowed, notified]
+Type: daemon
+Identifier: com.example.updater
+URL: file:///Library/LaunchDaemons/com.example.updater.plist
+Executable Path: /Library/PrivilegedHelperTools/com.example.updater
