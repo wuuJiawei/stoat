@@ -179,6 +179,9 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	options := cliOptions{}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	if acceptsIdentifier(command) && len(arguments) > 1 && !strings.HasPrefix(arguments[0], "-") {
+		arguments = append(append([]string(nil), arguments[1:]...), arguments[0])
+	}
 	flags.BoolVar(&options.jsonOutput, "json", false, "write JSON")
 	var riskValue *string
 	if command != "diff" && command != "audit" && command != "restore" && command != "changes" {
@@ -227,7 +230,7 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 		options.beforePath, options.afterPath = flags.Arg(0), flags.Arg(1)
 		return options, nil
 	}
-	positional := command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "audit" || command == "diagnose"
+	positional := acceptsIdentifier(command)
 	if !positional && flags.NArg() != 0 {
 		return options, fmt.Errorf("unexpected argument %q", flags.Arg(0))
 	}
@@ -268,6 +271,15 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 		return options, errors.New("changes limit must be between 1 and 1000")
 	}
 	return options, nil
+}
+
+func acceptsIdentifier(command string) bool {
+	switch command {
+	case "inspect", "disable", "quarantine", "restore", "audit", "diagnose":
+		return true
+	default:
+		return false
+	}
 }
 
 func runMutation(ctx context.Context, command, home string, options cliOptions, items []model.PersistenceItem, stdout io.Writer) error {

@@ -51,6 +51,16 @@ func TestParseMutationOptions(t *testing.T) {
 	}
 }
 
+func TestParseOptionsAfterIdentifier(t *testing.T) {
+	options, err := parseOptions("diagnose", []string{"item", "--json", "--last", "2m", "--limit", "5"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.query != "item" || !options.jsonOutput || options.logPeriod != 2*time.Minute || options.logLimit != 5 {
+		t.Fatalf("unexpected interspersed options: %#v", options)
+	}
+}
+
 func TestFindItemRejectsAmbiguousLabel(t *testing.T) {
 	items := []model.PersistenceItem{{ID: "one", Label: "same"}, {ID: "two", Label: "same"}}
 	if _, err := findItem(items, "same"); err == nil {
