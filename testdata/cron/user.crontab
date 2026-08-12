@@ -1,0 +1,5 @@
+# backup jobs
+SHELL=/bin/zsh
+*/5 * * * * /usr/local/bin/backup --quiet
+@reboot /usr/local/bin/start-agent
+invalid line

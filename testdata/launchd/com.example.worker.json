@@ -1,0 +1,13 @@
+{
+  "Label": "com.example.worker",
+  "ProgramArguments": ["/usr/local/bin/worker", "--quiet"],
+  "RunAtLoad": true,
+  "KeepAlive": {"SuccessfulExit": false},
+  "StartInterval": 300,
+  "StartCalendarInterval": [
+    {"Hour": 3, "Minute": 0},
+    {"Weekday": 1, "Hour": 9, "Minute": 30}
+  ],
+  "WatchPaths": ["/Users/example/Library/Work"],
+  "WorkingDirectory": "/Users/example"
+}
