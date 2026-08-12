@@ -1,151 +1,159 @@
-# Stoat
+<!-- markdownlint-disable-file MD013 MD033 MD041 -->
 
-Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
+<p align="center">
+  <strong>中文</strong> | <a href="README_EN.md">English</a>
+</p>
 
-当前版本为 `v1.1.0`，最低目标系统为 macOS 13。
+<div align="center">
+  <h1>Stoat</h1>
+  <p><em>看清并管理每一个在 Mac 上自动运行的项目。</em></p>
+</div>
 
-## 已实现
+<p align="center">
+  <a href="https://github.com/wuuJiawei/stoat/releases"><img src="https://img.shields.io/github/v/release/wuuJiawei/stoat?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/wuuJiawei/stoat/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wuuJiawei/stoat/ci.yml?branch=main&style=flat-square&label=CI" alt="CI"></a>
+  <a href="https://github.com/wuuJiawei/stoat/blob/main/go.mod"><img src="https://img.shields.io/github/go-mod/go-version/wuuJiawei/stoat?style=flat-square" alt="Go"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/wuuJiawei/stoat?style=flat-square" alt="License"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black?style=flat-square&logo=apple" alt="macOS 13+">
+</p>
 
-- 扫描 Login Items / Background Task Management、LaunchAgents、LaunchDaemons、用户 crontab 和 `/etc/crontab`
-- 统一数据模型与 Startup / Scheduled / Background 多分类
-- XML、binary plist 通过系统 `plutil` 安全转换后解析
-- 检查可执行文件是否存在、权限和代码签名
-- 可解释的风险评分，不输出“病毒/安全”结论
-- Bubble Tea TUI、表格输出和 JSON 输出
-- 默认不扫描 Apple `/System/Library` 基准项，可用 `--system` 显式加入
-- 读取 launchctl 实时加载、运行、PID、退出码和禁用状态
-- 基于 `.app` 路径与 `Info.plist` 证据关联所属应用，不根据 label 猜测
-- JSON / CSV 安全导出；文件以 `0600` 原子写入且默认拒绝覆盖
-- macOS 13 / 14 / 15 脱敏 BTM fixture 与解析性能基准
-- 扫描快照与新增、删除、配置变更对比；忽略 PID 等易变运行字段
-- 每条风险 finding 具有稳定规则 ID、分数、证据和可审计的屏蔽状态
-- 严格 JSON 风险例外策略，仅允许按确定 item ID 屏蔽指定正向规则
-- Homebrew HEAD Formula、双架构 Release、SHA-256 校验和与 Sigstore 无密钥签名
-- TUI 内管理 launchd 项：停用、启用、隔离、删除启动项、卸载已归属应用和恢复
-- 删除启动项保留私有备份；卸载应用只移动到废纸篓，不做不可逆删除
-- 配置摘要绑定的双阶段确认令牌，配置变化后旧令牌自动失效
-- 操作前备份、失败回滚、恢复验证与私有操作审计
-- 轮询式变更监控、最多 1000 条私有变更记录和 JSON 事件流
-- launchd 状态、退出码、风险证据与 macOS Unified Log 联合诊断
-- Homebrew service 定义，可通过 `brew services` 持续运行监控
-- 安全一键安装：自动识别 arm64 / amd64、验证 SHA-256、限制归档路径并原子安装
-- GitHub、`stoat.lighting.pub` 与可配置国内 GitHub 加速镜像三种分发入口
+Stoat 是一个安全优先的 macOS 持久化检查与管理工具。它把登录项、`launchd`、后台任务和定时任务放进统一视图，解释项目从哪里来、当前是否运行、为什么值得关注，并在安全边界内提供停用、启用、隔离、移除与恢复能力。
 
-## 安全边界
+> Stoat 提供复核线索，不是恶意软件检测器，也不会把“高风险”直接判定为“病毒”。
 
-- 状态修改只支持 launchd；不修改 BTM 私有数据库或重写 crontab
-- 不调用 `sudo`；系统级项目只允许已是 root 的进程操作
-- `/System/Library` 永久禁止修改，配置路径、目录符号链接和权限均需验证
-- 所有 launchd 操作前保存受保护备份，失败时恢复配置、运行状态和应用位置
-- 不调用 Shell：参数直接传给 `exec.CommandContext`
-- 系统命令使用绝对路径白名单，防止 `PATH` 劫持
-- 外部命令 3 秒超时、输出大小受限，整体扫描 45 秒超时
-- 跳过符号链接、设备文件及超大配置文件
-- 单个来源失败仅产生 warning，其他结果仍可使用
+## 功能
 
-详见 [SECURITY.md](SECURITY.md)、[项目章程](docs/PROJECT.md) 和 [架构说明](docs/ARCHITECTURE.md)。
+- **统一发现**：扫描 Login Items、Background Task Management、LaunchAgents、LaunchDaemons 和 cron。
+- **清晰归属**：结合 `.app` 路径、`Info.plist`、签名、文件属性和 `launchctl` 状态解释来源。
+- **交互管理**：按“分类 → 列表 → 详情 → 操作”浏览，支持停用、启用、隔离、移除启动项和卸载已确认归属的应用。
+- **持续观察**：保存快照、比较配置变化、记录历史事件，并结合 Unified Log 生成诊断信息。
+- **安全操作**：强确认、私有备份、操作后验证、审计、失败回滚；应用只移动到废纸篓。
+- **自动化友好**：提供表格、JSON、CSV 和 JSON 事件流，支持 Intel 与 Apple Silicon。
 
-## 开发
+## 快速开始
 
-要求 Go 1.25+。
-
-```bash
-make verify
-make build
-./bin/stoat
-```
-
-## 使用
-
-```bash
-stoat
-stoat scan
-stoat scan --json
-stoat startup
-stoat scheduled
-stoat background
-stoat suspicious
-stoat inspect <id-or-label>
-stoat export --format json --output stoat-report.json
-stoat export --format csv --output stoat-report.csv
-stoat snapshot --output before.json
-stoat diff --json before.json after.json
-stoat scan --rules policy.json
-stoat scan --system
-stoat disable <id-or-label>
-stoat disable <id-or-label> --confirm <token>
-stoat enable <id-or-label>
-stoat quarantine <id-or-label>
-stoat remove <id-or-label>
-stoat delete <id-or-label> # remove 的别名
-stoat uninstall <id-or-label>
-stoat restore <operation-id>
-stoat audit [operation-id]
-stoat watch --interval 30s
-stoat changes --limit 50
-stoat diagnose <id-or-label> --last 1h
-```
-
-直接运行 `stoat` 会先显示分类菜单。使用方向键或 `1`–`5` 选择分类，`Enter` 查看详情，按 `a` 打开操作菜单，`Esc` 逐级返回。删除启动项需输入 `REMOVE`，卸载应用需输入 `UNINSTALL`；操作成功后自动重新扫描。
-
-`stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
-
-风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)，监控行为见 [docs/MONITORING.md](docs/MONITORING.md)。功能完成度与仍依赖外部条件的发布事项见 [路线图与待办](docs/ROADMAP.md)。
-
-## 安装
-
-可直接安装到 `~/.local/bin`：
+### 安装
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | sh
 ```
 
-`lighting.pub` 和国内镜像入口的部署结构、校验边界与当前状态见 [安装文档](docs/INSTALLATION.md)。
-
-从当前私有仓库使用 Homebrew 构建安装：
+安装器会识别 `arm64` / `amd64`，校验 SHA-256，并原子安装到 `~/.local/bin/stoat`。如果该目录不在 `PATH`：
 
 ```bash
-brew tap wuuJiawei/stoat git@github.com:wuuJiawei/stoat.git
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### 运行
+
+```bash
+stoat
+```
+
+进入交互界面后：
+
+- 使用方向键或 `1`–`5` 选择分类。
+- 按 `Enter` 进入列表或查看详情，按 `a` 打开操作菜单。
+- 按 `Esc` 逐级返回；删除和卸载需要输入指定确认词。
+
+再次运行安装脚本即可升级，无需先卸载。
+
+## 常用命令
+
+```bash
+# 查看
+stoat startup                    # 登录与开机启动项
+stoat scheduled                  # 定时任务
+stoat background                 # 后台项目
+stoat suspicious                 # 需要优先复核的项目
+stoat inspect <id-or-label>      # 查看完整详情
+
+# 管理：首次执行输出计划和一次性确认令牌
+stoat disable <id-or-label>
+stoat disable <id-or-label> --confirm <token>
+stoat enable <id-or-label>
+stoat quarantine <id-or-label>
+stoat remove <id-or-label>       # 移除启动配置，保留可恢复备份
+stoat uninstall <id-or-label>    # 将已归属应用移动到废纸篓
+stoat restore <operation-id>
+
+# 观察与导出
+stoat scan --json
+stoat snapshot --output before.json
+stoat diff --json before.json after.json
+stoat watch --interval 30s
+stoat changes --limit 50
+stoat diagnose <id-or-label> --last 1h
+stoat export --format csv --output stoat-report.csv
+```
+
+运行 `stoat --help` 查看完整参数。
+
+## 安全设计
+
+Stoat 会读取多种 macOS 持久化来源，但不会对所有来源开放修改：
+
+- 扫描默认只读；状态修改仅支持非 Apple 的 `launchd` 项。
+- 不修改 BTM 私有数据库，不重写 crontab，不操作 `/System/Library` 项。
+- 不调用 `sudo`，不通过 Shell 执行系统命令；系统级操作要求进程本身已是 root。
+- 每次操作都绑定项目 ID、配置摘要和当前运行状态；配置变化后旧令牌自动失效。
+- 修改前创建受保护备份，随后验证结果、写入审计；失败时恢复原配置与运行状态。
+- 卸载只处理证据明确、位于 `/Applications` 或 `~/Applications` 的顶层 `.app`，不猜测或删除缓存、配置、账号及其他用户数据。
+- 外部命令、文件大小、输出和整体扫描都有边界与超时；单一来源失败会产生 warning，不会隐藏其他结果。
+
+安全模型与恢复流程见 [SECURITY.md](SECURITY.md) 和 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)。
+
+## 其他安装方式
+
+### 从源码构建
+
+```bash
+git clone https://github.com/wuuJiawei/stoat.git
+cd stoat
+make verify
+make build
+./bin/stoat
+```
+
+需要 Go 1.25+。
+
+### Homebrew HEAD（实验性）
+
+```bash
+brew tap wuuJiawei/stoat https://github.com/wuuJiawei/stoat.git
 brew install --HEAD stoat
 brew services start stoat
 ```
 
-根目录 `VERSION` 变更合并到 `main` 后会自动创建版本 Tag，并生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证；Homebrew 发布条件见 [docs/HOMEBREW.md](docs/HOMEBREW.md)。
+稳定版自有 Tap 与 `homebrew/core` 尚未发布，进度见 [Homebrew 说明](docs/HOMEBREW.md)。`stoat.lighting.pub` 和国内镜像的规划见 [安装文档](docs/INSTALLATION.md)。
 
-```bash
-cosign verify-blob stoat-v1.0.0-darwin-arm64.tar.gz \
-  --bundle stoat-v1.0.0-darwin-arm64.tar.gz.sigstore.json \
-  --certificate-identity-regexp='^https://github.com/wuuJiawei/stoat/.github/workflows/release.yml@refs/tags/v[0-9].*$' \
-  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
-```
+## 兼容性与数据
 
-## 项目结构
+- 目标系统：macOS 13+；CI 在 macOS 14 / 15 验证。
+- 架构：Apple Silicon (`arm64`) 与 Intel (`amd64`)。
+- 私有状态：`~/Library/Application Support/Stoat`。
+- 快照 diff 关注持久化配置、签名、归属和禁用状态，不把 PID 或短暂运行状态变化视为配置变化。
+- `sfltool dumpbtm` 与 `launchctl` 的部分诊断输出不是稳定公共格式，解析器只读取已知字段并保留未知字段兼容性。
 
-```text
-cmd/stoat              CLI 入口
-internal/app           扫描编排、去重、排序
-internal/action        launchd 安全操作、回滚和审计
-internal/collector     macOS 数据采集
-internal/executil      外部命令安全边界
-internal/model         统一领域模型
-internal/monitor       基线、差异事件和历史记录
-internal/diagnostics   运行状态与 Unified Log 诊断
-internal/parser        launchd / cron / BTM 解析
-internal/signing       文件属性与代码签名
-internal/risk          纯函数规则引擎
-internal/tui           Bubble Tea 分类、详情与安全操作界面
-testdata               固定测试样本
-```
+## 文档
 
-## 当前限制
+- [项目定位](docs/PROJECT.md)
+- [架构说明](docs/ARCHITECTURE.md)
+- [风险策略](docs/RISK_POLICY.md)
+- [监控与变更历史](docs/MONITORING.md)
+- [兼容性](docs/COMPATIBILITY.md)
+- [路线图](docs/ROADMAP.md)
+- [贡献指南](CONTRIBUTING.md)
 
-- `sfltool dumpbtm` 属于系统诊断输出，不是稳定公共 API；解析器忽略未知字段并保留兼容性，但仍需在不同 macOS 版本建立 fixture 回归库。
-- `launchctl` 的诊断文本不是稳定公共数据格式；解析器仅读取已知字段并保持未知字段兼容。
-- 无法从可执行路径或来源 Bundle ID 建立证据链的项目会明确显示为 `Unattributed`。
-- 快照 diff 关注持久化配置、签名、归属、文件属性和禁用状态，不将 PID、运行/停止切换视为配置变更。
-- BTM 和 cron 修改仍不开放；前者依赖私有数据库，后者需安全保留整份 crontab 的语义和并发修改。
-- 应用卸载仅支持归属明确且直接位于 `~/Applications` 或 `/Applications` 的 `.app`；只移动 App Bundle 与对应启动配置，不猜测或删除 Application Support、缓存和用户数据。
+## 致谢
 
-## 设计来源
+特别感谢 [tw93/Mole](https://github.com/tw93/Mole)。Stoat 在终端优先的产品表达、TUI 交互、安全默认值和开源维护方式上受到 Mole 启发。
 
-工程组织参考 [tw93/Mole](https://github.com/tw93/Mole) 的 Go + Bubble Tea 组件化方式、质量检查与超时约束；Stoat 未复制 Mole 源码，并针对持久化检查采用独立领域模型与只读安全边界。
+Mole 专注于 macOS 清理、卸载与系统维护；Stoat 专注于持久化项目的发现、解释和受控管理。两者解决的问题不同，Stoat 的代码、领域模型与安全操作协议均为独立实现。
+
+也感谢 [Bubble Tea](https://github.com/charmbracelet/bubbletea) 及所有参与反馈、测试和贡献的开发者。
+
+## License
+
+[MIT](LICENSE) © Stoat contributors
