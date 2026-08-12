@@ -1,5 +1,9 @@
 <!-- markdownlint-disable-file MD013 MD033 MD041 -->
 
+<p align="center">
+  <strong>中文</strong> | <a href="README_EN.md">English</a>
+</p>
+
 <div align="center">
   <h1>Stoat</h1>
   <p><em>看清并管理每一个在 Mac 上自动运行的项目。</em></p>
