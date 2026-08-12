@@ -17,6 +17,7 @@ jobs:
         with:
           go-version: '1.25.x'
           cache: true
+      - run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
       - run: gofmt -l . | tee /tmp/unformatted && test ! -s /tmp/unformatted
       - run: go vet ./...
       - run: go test -race ./...
