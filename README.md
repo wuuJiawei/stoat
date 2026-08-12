@@ -81,6 +81,8 @@ stoat changes --limit 50
 stoat diagnose <id-or-label> --last 1h
 ```
 
+直接运行 `stoat` 会先显示分类菜单。使用方向键或 `1`–`5` 选择启动项、定时任务、后台项、风险项或全部项目；`Enter` 进入，`Esc` 逐级返回。首次选择后执行扫描，后续切换分类复用同一次扫描结果。
+
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
 
 风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)，监控行为见 [docs/MONITORING.md](docs/MONITORING.md)。功能完成度与仍依赖外部条件的发布事项见 [路线图与待办](docs/ROADMAP.md)。

@@ -20,6 +20,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/wuuJiawei/stoat/internal/action"
 	"github.com/wuuJiawei/stoat/internal/app"
+	"github.com/wuuJiawei/stoat/internal/collector"
 	"github.com/wuuJiawei/stoat/internal/diagnostics"
 	"github.com/wuuJiawei/stoat/internal/executil"
 	"github.com/wuuJiawei/stoat/internal/exporter"
@@ -94,6 +95,18 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	if command == "watch" {
 		return runWatch(home, options, policy, stdout, stderr)
 	}
+	if command == "tui" {
+		scanner := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy)
+		interactive := tui.NewWithLoader(func() ([]model.PersistenceItem, []collector.Warning) {
+			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+			defer cancel()
+			report := scanner.Scan(ctx)
+			return filterItems(report.Items, options.category, options.risk, options.minimumRisk), report.Warnings
+		})
+		program := tea.NewProgram(interactive, tea.WithAltScreen())
+		_, err = program.Run()
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	report := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy).Scan(ctx)
@@ -101,10 +114,6 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	report.Items = filterItems(report.Items, options.category, options.risk, options.minimumRisk)
 
 	switch command {
-	case "tui":
-		program := tea.NewProgram(tui.New(report.Items, report.Warnings), tea.WithAltScreen())
-		_, err = program.Run()
-		return err
 	case "scan", "startup", "scheduled", "background", "suspicious":
 		if options.jsonOutput {
 			encoder := json.NewEncoder(stdout)
