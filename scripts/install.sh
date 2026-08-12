@@ -49,7 +49,7 @@ download() {
     destination="$2"
     require_https_url "$source_url" "download URL"
     /usr/bin/curl --fail --silent --show-error --location \
-        --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+        --proto '=https' --tlsv1.2 --retry 3 --retry-connrefused \
         --output "$destination" "$source_url"
 }
 
