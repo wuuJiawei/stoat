@@ -127,10 +127,14 @@ verify_archive() {
 
 install_binary() {
     binary="$1"
-    [ -f "$binary" ] && [ ! -L "$binary" ] || fail "release does not contain a regular stoat binary"
+    if [ ! -f "$binary" ] || [ -L "$binary" ]; then
+        fail "release does not contain a regular stoat binary"
+    fi
     [ ! -L "$install_dir" ] || fail "install directory must not be a symbolic link"
     /bin/mkdir -p "$install_dir"
-    [ -d "$install_dir" ] && [ -w "$install_dir" ] || fail "install directory is not writable: $install_dir"
+    if [ ! -d "$install_dir" ] || [ ! -w "$install_dir" ]; then
+        fail "install directory is not writable: $install_dir"
+    fi
     target="$install_dir/stoat"
     [ ! -L "$target" ] || fail "refusing to replace symbolic link: $target"
     if [ -e "$target" ] && [ ! -f "$target" ]; then
@@ -170,7 +174,9 @@ main() {
         *) fail "unsupported architecture: $(platform_arch)" ;;
     esac
     require_https_url "https://github.com/${repository}" "repository"
-    [ -n "$install_dir" ] && [ "${install_dir#/}" != "$install_dir" ] || fail "install directory must be absolute"
+    if [ -z "$install_dir" ] || [ "${install_dir#/}" = "$install_dir" ]; then
+        fail "install directory must be absolute"
+    fi
 
     temporary=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/stoat-install.XXXXXX")
     trap 'rm -rf "$temporary"' EXIT HUP INT TERM
@@ -187,7 +193,9 @@ main() {
     download "$(checksums_url)" "$checksums"
     verify_archive "$archive" "$checksums" "$asset"
     /usr/bin/tar -xzf "$archive" -C "$temporary" stoat
-    [ -f "$temporary/stoat" ] && [ ! -L "$temporary/stoat" ] || fail "release does not contain a regular stoat binary"
+    if [ ! -f "$temporary/stoat" ] || [ -L "$temporary/stoat" ]; then
+        fail "release does not contain a regular stoat binary"
+    fi
     actual_version=$("$temporary/stoat" version 2>/dev/null || true)
     [ "$actual_version" = "$version" ] || fail "installed binary reported '$actual_version', expected '$version'"
     install_binary "$temporary/stoat"

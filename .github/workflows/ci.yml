@@ -20,7 +20,7 @@ jobs:
       - run: gofmt -l . | tee /tmp/unformatted && test ! -s /tmp/unformatted
       - run: go vet ./...
       - run: go test -race ./...
-      - run: shellcheck scripts/*.sh
+      - run: shellcheck -x scripts/*.sh
       - run: bash scripts/install_test.sh
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./cmd/stoat
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./cmd/stoat
