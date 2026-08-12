@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/wuuJiawei/stoat/internal/collector"
 	"github.com/wuuJiawei/stoat/internal/model"
@@ -12,23 +13,48 @@ import (
 )
 
 type Report struct {
-	Items    []model.PersistenceItem `json:"items"`
-	Warnings []collector.Warning     `json:"warnings,omitempty"`
+	SchemaVersion int                     `json:"schema_version"`
+	GeneratedAt   time.Time               `json:"generated_at"`
+	ToolVersion   string                  `json:"tool_version,omitempty"`
+	Items         []model.PersistenceItem `json:"items"`
+	Warnings      []collector.Warning     `json:"warnings,omitempty"`
+}
+
+type Enricher interface {
+	Name() string
+	Enrich(context.Context, *model.PersistenceItem) error
+}
+
+type preparer interface {
+	Prepare(context.Context) error
 }
 
 type Scanner struct {
 	collectors []collector.Collector
-	inspector  *signing.Inspector
+	enrichers  []Enricher
 	risk       *risk.Engine
 	workers    int
 }
 
 func NewScanner(collectors []collector.Collector, inspector *signing.Inspector, riskEngine *risk.Engine) *Scanner {
-	return &Scanner{collectors: append([]collector.Collector(nil), collectors...), inspector: inspector, risk: riskEngine, workers: 4}
+	var enrichers []Enricher
+	if inspector != nil {
+		enrichers = append(enrichers, inspector)
+	}
+	return NewScannerWithEnrichers(collectors, enrichers, riskEngine)
+}
+
+func NewScannerWithEnrichers(collectors []collector.Collector, enrichers []Enricher, riskEngine *risk.Engine) *Scanner {
+	return &Scanner{
+		collectors: append([]collector.Collector(nil), collectors...),
+		enrichers:  append([]Enricher(nil), enrichers...),
+		risk:       riskEngine,
+		workers:    4,
+	}
 }
 
 func (s *Scanner) Scan(ctx context.Context) Report {
-	report := Report{}
+	report := Report{SchemaVersion: 1, GeneratedAt: time.Now().UTC()}
 	for _, source := range s.collectors {
 		if ctx.Err() != nil {
 			break
@@ -38,7 +64,14 @@ func (s *Scanner) Scan(ctx context.Context) Report {
 		report.Warnings = append(report.Warnings, result.Warnings...)
 	}
 	report.Items = deduplicate(report.Items)
-	report.Warnings = append(report.Warnings, s.enrich(ctx, report.Items)...)
+	for _, enricher := range s.enrichers {
+		if setup, ok := enricher.(preparer); ok {
+			if err := setup.Prepare(ctx); err != nil {
+				report.Warnings = append(report.Warnings, collector.NewWarning(enricher.Name(), "", err))
+			}
+		}
+		report.Warnings = append(report.Warnings, s.enrich(ctx, enricher, report.Items)...)
+	}
 	for index := range report.Items {
 		s.risk.Evaluate(&report.Items[index])
 	}
@@ -51,8 +84,8 @@ func (s *Scanner) Scan(ctx context.Context) Report {
 	return report
 }
 
-func (s *Scanner) enrich(ctx context.Context, items []model.PersistenceItem) []collector.Warning {
-	if s.inspector == nil || len(items) == 0 {
+func (s *Scanner) enrich(ctx context.Context, enricher Enricher, items []model.PersistenceItem) []collector.Warning {
+	if enricher == nil || len(items) == 0 {
 		return nil
 	}
 	workers := s.workers
@@ -70,8 +103,8 @@ func (s *Scanner) enrich(ctx context.Context, items []model.PersistenceItem) []c
 				if ctx.Err() != nil {
 					return
 				}
-				if err := s.inspector.Enrich(ctx, &items[index]); err != nil {
-					warnings <- collector.NewWarning("file-inspector", items[index].Program, err)
+				if err := enricher.Enrich(ctx, &items[index]); err != nil {
+					warnings <- collector.NewWarning(enricher.Name(), items[index].Program, err)
 				}
 			}
 		}()

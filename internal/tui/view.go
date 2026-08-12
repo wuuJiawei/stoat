@@ -76,6 +76,8 @@ func (m Model) detailView(item model.PersistenceItem) string {
 	output.WriteString(field("Categories", categories(item)) + "\n")
 	output.WriteString(field("Schedule", schedule(item)) + "\n")
 	output.WriteString(field("Executable", emptyDash(item.Program)) + "\n")
+	output.WriteString(field("Application", attribution(item)) + "\n")
+	output.WriteString(field("Runtime", runtimeStatus(item)) + "\n")
 	output.WriteString(field("Source", emptyDash(item.ConfigPath)) + "\n")
 	output.WriteString(field("Signature", signature(item)) + "\n\n")
 	riskLabel := fmt.Sprintf("%d · %s", item.RiskScore, strings.ToUpper(string(item.RiskLevel)))
@@ -88,8 +90,15 @@ func (m Model) detailView(item model.PersistenceItem) string {
 		riskLabel = trustedStyle.Render(riskLabel)
 	}
 	output.WriteString(field("Risk", riskLabel) + "\n")
-	for _, reason := range item.RiskReasons {
-		output.WriteString("  • " + reason + "\n")
+	for _, finding := range item.RiskFindings {
+		if finding.Suppressed {
+			output.WriteString(mutedStyle.Render("  ○ "+finding.Reason+" [suppressed: "+finding.SuppressionReason+"]") + "\n")
+			continue
+		}
+		output.WriteString("  • " + finding.Reason + " [" + finding.RuleID + "]\n")
+		for _, evidence := range finding.Evidence {
+			output.WriteString(mutedStyle.Render("      "+evidence) + "\n")
+		}
 	}
 	output.WriteString("\n" + mutedStyle.Render("Esc/h back  q quit"))
 	return output.String()

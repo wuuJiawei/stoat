@@ -22,12 +22,17 @@ func ParseBTMDump(data []byte) []model.PersistenceItem {
 			return
 		}
 		path := fileURLPath(rawURL)
-		label := firstNonEmpty(name, identifier, path)
+		program := firstNonEmpty(current["executable path"], path)
+		label := firstNonEmpty(name, identifier, program)
 		typeText := strings.ToLower(current["type"])
 		itemType := model.TypeLoginItem
 		categories := []model.Category{model.CategoryStartup}
 		if strings.Contains(typeText, "background") || strings.Contains(typeText, "agent") || strings.Contains(typeText, "daemon") {
 			categories = model.AddCategory(categories, model.CategoryBackground)
+		}
+		appPath := ""
+		if strings.HasSuffix(strings.ToLower(path), ".app") {
+			appPath = path
 		}
 		item := model.PersistenceItem{
 			ID:         model.StableID(model.SourceBTM, rawURL, identifier+label),
@@ -36,8 +41,8 @@ func ParseBTMDump(data []byte) []model.PersistenceItem {
 			Scope:      model.ScopeUser,
 			Source:     model.SourceBTM,
 			Categories: categories,
-			Program:    path,
-			AppPath:    path,
+			Program:    program,
+			AppPath:    appPath,
 			BundleID:   identifier,
 			ConfigPath: rawURL,
 		}

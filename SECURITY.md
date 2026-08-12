@@ -12,6 +12,9 @@ Stoat V1 is read-only. It does not delete files, disable jobs, invoke `sudo`, ed
 - Symlinks and non-regular configuration files are skipped.
 - Partial failures are surfaced as warnings.
 - Risk results always include evidence and never claim malware detection.
+- Snapshot and policy files must be bounded regular files; JSON schemas reject unknown fields and trailing values.
+- Risk exceptions require an exact item ID and rule ID, expire explicitly, and remain visible in audit output.
+- Export and snapshot files use mode `0600`, temporary-file writes, and atomic rename; overwrite requires `--force`.
 
 ## Reporting
 

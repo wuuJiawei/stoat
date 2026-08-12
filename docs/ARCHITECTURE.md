@@ -12,7 +12,7 @@ macOS sources
   -> source parsers
   -> PersistenceItem
   -> deduplication
-  -> file/signature enrichment
+  -> runtime / attribution / file-signature enrichments
   -> risk rules
   -> TUI / table / JSON
 ```
@@ -35,11 +35,17 @@ Parser 不访问系统，输入固定字节并产生领域对象，便于 fixtur
 
 ### Enrichment
 
-签名模块只处理绝对路径；先读取文件属性，再在 macOS 上执行 `codesign`。并发上限为 4，避免大量进程争用。未执行签名检查与检查后确认 unsigned 是两个不同状态。
+Enricher 按固定顺序执行，每个阶段使用有界并发且局部失败只生成 warning：
+
+1. Runtime：`launchctl print-disabled` 每个 domain 一次，逐项读取加载、运行、PID 和退出状态。
+2. Attribution：只接受来源 Bundle ID、`.app` 路径和 `Info.plist` 作为证据，不根据 label 猜测。
+3. Signature：只处理绝对路径；先读取文件属性，再在 macOS 上执行 `codesign`。
+
+并发上限为 4，避免大量进程争用。未执行检查和检查后得到否定结果是不同状态。
 
 ### Risk engine
 
-规则是纯函数：`PersistenceItem -> []Finding`。每条 finding 包含分数与原因，最终分数限制在 0–100。
+规则是纯函数：`PersistenceItem -> []Finding`。每条 finding 包含稳定规则 ID、分数、原因和证据，最终分数限制在 0–100。风险例外只能按 `item_id + rule_id` 精确匹配正向 finding；被屏蔽项仍保留在输出中用于审计。
 
 ```text
 0–19   Trusted
@@ -73,12 +79,14 @@ Parser 不访问系统，输入固定字节并产生领域对象，便于 fixtur
 
 基础扫描、解析、风险引擎、TUI/JSON、安全命令执行、单元测试和 CI。
 
-### v0.2
+### v0.2（已完成）
 
-launchctl runtime、App Attribution、导出、跨 macOS 13–最新版本 fixture、性能基准。
+launchctl runtime、App Attribution、JSON/CSV 原子导出、macOS 13–15 fixture、性能基准。
 
-### v0.3
+### v0.3（已完成）
 
-扫描快照与差异对比、规则配置 schema、Homebrew 安装和签名发布。
+扫描快照与差异对比、严格规则例外 schema、Homebrew HEAD 安装、双架构发布、校验和与 Sigstore 无密钥签名。
+
+Apple Developer ID 签名和公证属于后续发布基础设施工作，需要项目所有者证书，不在仓库中保存凭据。
 
 禁用/恢复不进入前三个里程碑，需单独安全评审。

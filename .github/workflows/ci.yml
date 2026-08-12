@@ -15,10 +15,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
           cache: true
       - run: gofmt -l . | tee /tmp/unformatted && test ! -s /tmp/unformatted
       - run: go vet ./...
       - run: go test -race ./...
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./cmd/stoat
       - run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ./cmd/stoat
+
+  macos-smoke:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+      - run: go test ./...
+      - run: ruby -c Formula/stoat.rb
+      - run: go build -trimpath -o stoat ./cmd/stoat
+      - run: ./stoat scan --json > report.json
+      - run: jq -e '.schema_version == 1 and (.items | type == "array")' report.json

@@ -88,6 +88,38 @@ func signature(item model.PersistenceItem) string {
 	return "Signed"
 }
 
+func runtimeStatus(item model.PersistenceItem) string {
+	if !item.Runtime.Checked {
+		return "Not checked"
+	}
+	if item.Runtime.Disabled {
+		return "Disabled"
+	}
+	if item.Runtime.Running {
+		if item.Runtime.PID > 0 {
+			return fmt.Sprintf("Running · PID %d", item.Runtime.PID)
+		}
+		return "Running"
+	}
+	if item.Runtime.Loaded {
+		return "Loaded · " + emptyDash(item.Runtime.State)
+	}
+	return "Not loaded"
+}
+
+func attribution(item model.PersistenceItem) string {
+	if !item.Attribution.Checked {
+		return "Not checked"
+	}
+	if item.Attribution.Name != "" {
+		return item.Attribution.Name + " · " + emptyDash(item.Attribution.BundleID)
+	}
+	if item.Attribution.BundleID != "" {
+		return item.Attribution.BundleID
+	}
+	return "Unattributed"
+}
+
 func field(label, value string) string {
 	return fmt.Sprintf("%-13s %s", label, value)
 }
