@@ -37,6 +37,14 @@ jobs:
           cache: true
       - run: go test ./...
       - run: ruby -c Formula/stoat.rb
+      - run: brew style Formula/stoat.rb
       - run: go build -trimpath -o stoat ./cmd/stoat
       - run: ./stoat scan --json > report.json
       - run: jq -e '.schema_version == 1 and (.items | type == "array")' report.json
+      - name: Diagnose one discovered item
+        run: |
+          item_id="$(jq -r '.items[0].id // empty' report.json)"
+          if [[ -n "$item_id" ]]; then
+            ./stoat diagnose "$item_id" --json --last 1m --limit 5 > diagnostic.json
+            jq -e '.schema_version == 1 and .item_id != ""' diagnostic.json
+          fi

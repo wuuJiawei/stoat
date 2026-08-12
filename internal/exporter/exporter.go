@@ -21,6 +21,8 @@ const (
 	FormatCSV  Format = "csv"
 )
 
+var ErrPathExists = errors.New("export path already exists; use --force to replace it")
+
 func ParseFormat(value string) (Format, error) {
 	format := Format(strings.ToLower(value))
 	if format != FormatJSON && format != FormatCSV {
@@ -51,7 +53,7 @@ func WriteFile(path string, force bool, write func(io.Writer) error) error {
 			return errors.New("refusing to replace non-regular export path")
 		}
 		if !force {
-			return errors.New("export path already exists; use --force to replace it")
+			return ErrPathExists
 		}
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("inspect export path: %w", err)

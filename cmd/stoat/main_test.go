@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/wuuJiawei/stoat/internal/model"
 )
@@ -58,5 +59,22 @@ func TestFindItemRejectsAmbiguousLabel(t *testing.T) {
 	item, err := findItem(items, "two")
 	if err != nil || item.ID != "two" {
 		t.Fatalf("id lookup failed: %#v %v", item, err)
+	}
+}
+
+func TestParseWatchAndChangesOptions(t *testing.T) {
+	watch, err := parseOptions("watch", []string{"--once", "--interval", "10s"}, &bytes.Buffer{})
+	if err != nil || !watch.once || watch.interval != 10*time.Second {
+		t.Fatalf("unexpected watch options: %#v %v", watch, err)
+	}
+	changes, err := parseOptions("changes", []string{"--limit", "12", "--json"}, &bytes.Buffer{})
+	if err != nil || changes.eventLimit != 12 || !changes.jsonOutput {
+		t.Fatalf("unexpected changes options: %#v %v", changes, err)
+	}
+}
+
+func TestTerminalTextRemovesControlCharacters(t *testing.T) {
+	if value := terminalText("ok\n\x1b[31m"); value != "ok  [31m" {
+		t.Fatalf("unexpected terminal-safe text: %q", value)
 	}
 }

@@ -8,19 +8,23 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/wuuJiawei/stoat/internal/action"
 	"github.com/wuuJiawei/stoat/internal/app"
+	"github.com/wuuJiawei/stoat/internal/diagnostics"
 	"github.com/wuuJiawei/stoat/internal/executil"
 	"github.com/wuuJiawei/stoat/internal/exporter"
 	"github.com/wuuJiawei/stoat/internal/model"
+	"github.com/wuuJiawei/stoat/internal/monitor"
 	"github.com/wuuJiawei/stoat/internal/risk"
 	snapshotfile "github.com/wuuJiawei/stoat/internal/snapshot"
 	"github.com/wuuJiawei/stoat/internal/tui"
@@ -84,6 +88,12 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	if command == "restore" || command == "audit" {
 		return runStoredAction(command, home, options, stdout)
 	}
+	if command == "changes" {
+		return runChanges(options, stdout)
+	}
+	if command == "watch" {
+		return runWatch(home, options, policy, stdout, stderr)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	report := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy).Scan(ctx)
@@ -135,6 +145,8 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("item not found: %s", options.query)
 	case "disable", "quarantine":
 		return runMutation(ctx, command, home, options, report.Items, stdout)
+	case "diagnose":
+		return runDiagnose(ctx, options, report.Items, stdout)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -155,6 +167,12 @@ type cliOptions struct {
 	afterPath     string
 	confirm       string
 	dataDir       string
+	statePath     string
+	interval      time.Duration
+	once          bool
+	logPeriod     time.Duration
+	logLimit      int
+	eventLimit    int
 }
 
 func parseOptions(command string, arguments []string, stderr io.Writer) (cliOptions, error) {
@@ -163,7 +181,7 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	flags.SetOutput(stderr)
 	flags.BoolVar(&options.jsonOutput, "json", false, "write JSON")
 	var riskValue *string
-	if command != "diff" && command != "audit" && command != "restore" {
+	if command != "diff" && command != "audit" && command != "restore" && command != "changes" {
 		flags.BoolVar(&options.includeSystem, "system", false, "include Apple system launchd jobs")
 		flags.StringVar(&options.rulesPath, "rules", "", "risk exception policy JSON")
 		riskValue = flags.String("risk", "", "filter by risk: trusted, normal, attention, high")
@@ -182,8 +200,22 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	if command == "disable" || command == "quarantine" || command == "restore" {
 		flags.StringVar(&options.confirm, "confirm", "", "confirmation token from the current plan")
 	}
-	if command == "disable" || command == "quarantine" || command == "restore" || command == "audit" {
+	if command == "disable" || command == "quarantine" || command == "restore" || command == "audit" || command == "watch" || command == "changes" {
 		flags.StringVar(&options.dataDir, "data-dir", "", "Stoat private state directory")
+	}
+	if command == "watch" || command == "changes" {
+		flags.StringVar(&options.statePath, "state", "", "monitor snapshot path")
+	}
+	if command == "watch" {
+		flags.DurationVar(&options.interval, "interval", 30*time.Second, "polling interval (5s to 24h)")
+		flags.BoolVar(&options.once, "once", false, "scan once and exit")
+	}
+	if command == "changes" {
+		flags.IntVar(&options.eventLimit, "limit", 50, "maximum stored change events (1 to 1000)")
+	}
+	if command == "diagnose" {
+		flags.DurationVar(&options.logPeriod, "last", time.Hour, "unified log lookback (1m to 24h)")
+		flags.IntVar(&options.logLimit, "limit", 100, "maximum recent log entries (1 to 500)")
 	}
 	if err := flags.Parse(arguments); err != nil {
 		return options, err
@@ -195,7 +227,7 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 		options.beforePath, options.afterPath = flags.Arg(0), flags.Arg(1)
 		return options, nil
 	}
-	positional := command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "audit"
+	positional := command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "audit" || command == "diagnose"
 	if !positional && flags.NArg() != 0 {
 		return options, fmt.Errorf("unexpected argument %q", flags.Arg(0))
 	}
@@ -218,13 +250,22 @@ func parseOptions(command string, arguments []string, stderr io.Writer) (cliOpti
 	case "suspicious":
 		options.risk = model.RiskAttention
 		options.minimumRisk = true
-	case "inspect", "disable", "quarantine", "restore", "audit":
+	case "inspect", "disable", "quarantine", "restore", "audit", "diagnose":
 		if flags.NArg() > 0 {
 			options.query = flags.Arg(0)
 		}
 	}
-	if (command == "inspect" || command == "disable" || command == "quarantine" || command == "restore") && options.query == "" {
+	if (command == "inspect" || command == "disable" || command == "quarantine" || command == "restore" || command == "diagnose") && options.query == "" {
 		return options, fmt.Errorf("%s requires an identifier", command)
+	}
+	if command == "watch" && (options.interval < 5*time.Second || options.interval > 24*time.Hour) {
+		return options, errors.New("watch interval must be between 5s and 24h")
+	}
+	if command == "diagnose" && (options.logPeriod < time.Minute || options.logPeriod > 24*time.Hour || options.logLimit < 1 || options.logLimit > 500) {
+		return options, errors.New("diagnose requires --last 1m–24h and --limit 1–500")
+	}
+	if command == "changes" && (options.eventLimit < 1 || options.eventLimit > 1000) {
+		return options, errors.New("changes limit must be between 1 and 1000")
 	}
 	return options, nil
 }
@@ -268,7 +309,7 @@ func runStoredAction(command, home string, options cliOptions, stdout io.Writer)
 		table := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(table, "ID\tSTATUS\tACTION\tLABEL\tCREATED")
 		for _, operation := range operations {
-			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", operation.ID, operation.Status, operation.Plan.Action, operation.Plan.Label, operation.CreatedAt.Format(time.RFC3339))
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", operation.ID, operation.Status, operation.Plan.Action, terminalText(operation.Plan.Label), operation.CreatedAt.Format(time.RFC3339))
 		}
 		return table.Flush()
 	}
@@ -286,6 +327,124 @@ func runStoredAction(command, home string, options cliOptions, stdout io.Writer)
 		return err
 	}
 	return restoreErr
+}
+
+func runWatch(home string, options cliOptions, policy risk.Policy, stdout, stderr io.Writer) error {
+	if options.statePath == "" {
+		options.statePath = filepath.Join(options.dataDir, "monitor", "snapshot.json")
+	}
+	if !filepath.IsAbs(options.statePath) {
+		return errors.New("watch state path must be absolute")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	for {
+		scanCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		report := app.NewDefaultScannerWithPolicy(home, options.includeSystem, policy).Scan(scanCtx)
+		cancel()
+		report.ToolVersion = version
+		if ctx.Err() != nil {
+			return nil
+		}
+		if len(report.Warnings) > 0 {
+			for _, warning := range report.Warnings {
+				fmt.Fprintln(stderr, "warning:", warning.Error())
+			}
+			if options.once {
+				return errors.New("scan was incomplete; monitor state was not changed")
+			}
+			if waitForNextScan(ctx, options.interval) {
+				return nil
+			}
+			continue
+		}
+		observation, err := monitor.Observe(options.statePath, report)
+		if err != nil {
+			return err
+		}
+		if observation.Initialized || len(observation.Diff.Changes) > 0 {
+			if options.jsonOutput {
+				if err := writeJSON(stdout, observation); err != nil {
+					return err
+				}
+			} else if observation.Initialized {
+				fmt.Fprintln(stdout, "monitor baseline initialized")
+			} else {
+				fmt.Fprintf(stdout, "%s: %d persistence change(s)\n", observation.ObservedAt.Format(time.RFC3339), len(observation.Diff.Changes))
+				if err := printDiff(stdout, observation.Diff); err != nil {
+					return err
+				}
+			}
+		}
+		if options.once {
+			return nil
+		}
+		if waitForNextScan(ctx, options.interval) {
+			return nil
+		}
+	}
+}
+
+func runChanges(options cliOptions, stdout io.Writer) error {
+	if options.statePath == "" {
+		options.statePath = filepath.Join(options.dataDir, "monitor", "snapshot.json")
+	}
+	events, err := monitor.List(options.statePath, options.eventLimit)
+	if err != nil {
+		return err
+	}
+	if options.jsonOutput {
+		return writeJSON(stdout, events)
+	}
+	table := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(table, "TIME\tCHANGE\tTYPE\tLABEL\tEVENT")
+	for _, event := range events {
+		for _, change := range event.Diff.Changes {
+			itemType := ""
+			if change.After != nil {
+				itemType = string(change.After.Type)
+			} else if change.Before != nil {
+				itemType = string(change.Before.Type)
+			}
+			fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\n", event.ObservedAt.Format(time.RFC3339), change.Type, itemType, terminalText(change.Label), event.ID)
+		}
+	}
+	return table.Flush()
+}
+
+func waitForNextScan(ctx context.Context, interval time.Duration) bool {
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func runDiagnose(_ context.Context, options cliOptions, items []model.PersistenceItem, stdout io.Writer) error {
+	item, err := findItem(items, options.query)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	report := diagnostics.NewInspector(executil.NewExecRunner(20*time.Second, 8<<20)).Inspect(ctx, item, options.logPeriod, options.logLimit)
+	if options.jsonOutput {
+		return writeJSON(stdout, report)
+	}
+	fmt.Fprintf(stdout, "Label: %s\nExecutable: %s\nRisk: %s (%d)\n", terminalText(report.Label), terminalText(report.Program), report.RiskLevel, report.RiskScore)
+	for _, issue := range report.Issues {
+		fmt.Fprintln(stdout, "Issue:", terminalText(issue))
+	}
+	if report.LogWarning != "" {
+		fmt.Fprintln(stdout, "Warning:", terminalText(report.LogWarning))
+	}
+	for _, entry := range report.RecentLogs {
+		fmt.Fprintf(stdout, "%s\t%s\t%s\n", terminalText(entry.Timestamp), terminalText(entry.MessageType), terminalText(entry.Message))
+	}
+	return nil
 }
 
 func findItem(items []model.PersistenceItem, query string) (model.PersistenceItem, error) {
@@ -344,7 +503,7 @@ func printDiff(stdout io.Writer, diff snapshotfile.Diff) error {
 		} else if change.Before != nil {
 			itemType = string(change.Before.Type)
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", strings.ToUpper(string(change.Type)), itemType, change.Label, strings.Join(change.Fields, ", "))
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", strings.ToUpper(string(change.Type)), itemType, terminalText(change.Label), strings.Join(change.Fields, ", "))
 	}
 	return table.Flush()
 }
@@ -355,7 +514,7 @@ func validRisk(level model.RiskLevel) bool {
 
 func knownCommand(command string) bool {
 	switch command {
-	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff", "disable", "quarantine", "restore", "audit":
+	case "tui", "scan", "startup", "scheduled", "background", "suspicious", "inspect", "export", "snapshot", "diff", "disable", "quarantine", "restore", "audit", "watch", "changes", "diagnose":
 		return true
 	default:
 		return false
@@ -400,9 +559,18 @@ func printItems(writer io.Writer, items []model.PersistenceItem) {
 	table := tabwriter.NewWriter(writer, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(table, "RISK\tSCORE\tTYPE\tLABEL\tEXECUTABLE")
 	for _, item := range items {
-		fmt.Fprintf(table, "%s\t%d\t%s\t%s\t%s\n", strings.ToUpper(string(item.RiskLevel)), item.RiskScore, item.Type, item.Label, item.Program)
+		fmt.Fprintf(table, "%s\t%d\t%s\t%s\t%s\n", strings.ToUpper(string(item.RiskLevel)), item.RiskScore, item.Type, terminalText(item.Label), terminalText(item.Program))
 	}
 	_ = table.Flush()
+}
+
+func terminalText(value string) string {
+	return strings.Map(func(character rune) rune {
+		if character == '\n' || character == '\r' || character == '\t' || character == 0x1b || character < 0x20 || character == 0x7f {
+			return ' '
+		}
+		return character
+	}, value)
 }
 
 func printUsage(writer io.Writer) {
@@ -419,6 +587,9 @@ Usage:
   stoat disable|quarantine <id-or-label> [--confirm TOKEN]
   stoat restore <operation-id> [--confirm TOKEN]
   stoat audit [operation-id]
+  stoat watch [--once] [--interval 30s] [--json]
+  stoat changes [--limit 50] [--json]
+  stoat diagnose <id-or-label> [--last 1h] [--limit 100] [--json]
   stoat version
 
 State-changing commands only support launchd jobs. Running without --confirm prints a

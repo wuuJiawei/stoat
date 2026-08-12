@@ -93,3 +93,7 @@ Apple Developer ID 签名和公证属于后续发布基础设施工作，需要�
 ### v0.5（已完成）
 
 launchd 停用、隔离、恢复、确认令牌、备份、失败回滚、恢复验证和操作审计。BTM 与 cron 保持只读。
+
+### v0.8（已完成）
+
+保守轮询监控、持久化变更事件、历史查询、Unified Log 诊断和 Homebrew service。任何带 warning 的扫描均不推进监控基线。

@@ -2,7 +2,7 @@
 
 Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：哪些程序会在登录、开机、定时或后台自动运行，以及哪些项目值得人工复核。
 
-当前为 `v0.5.0`，最低目标系统为 macOS 13。
+当前为 `v0.8.0`，最低目标系统为 macOS 13。
 
 ## 已实现
 
@@ -24,6 +24,9 @@ Stoat 是一个安全优先的 macOS 持久化任务检查器，用于回答：�
 - launchd 项停用、隔离与恢复；BTM 和 cron 保持只读
 - 配置摘要绑定的双阶段确认令牌，配置变化后旧令牌自动失效
 - 操作前备份、失败回滚、恢复验证与私有操作审计
+- 轮询式变更监控、最多 1000 条私有变更记录和 JSON 事件流
+- launchd 状态、退出码、风险证据与 macOS Unified Log 联合诊断
+- Homebrew service 定义，可通过 `brew services` 持续运行监控
 
 ## 安全边界
 
@@ -71,26 +74,30 @@ stoat disable <id-or-label> --confirm <token>
 stoat quarantine <id-or-label>
 stoat restore <operation-id>
 stoat audit [operation-id]
+stoat watch --interval 30s
+stoat changes --limit 50
+stoat diagnose <id-or-label> --last 1h
 ```
 
 `stoat suspicious` 展示 Attention 和 High 项；风险原因只是复核线索，不是恶意软件判定。
 
-风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)。
+风险例外格式见 [docs/RISK_POLICY.md](docs/RISK_POLICY.md)，状态修改协议见 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)，监控行为见 [docs/MONITORING.md](docs/MONITORING.md)。
 
 ## 安装
 
 从当前私有仓库使用 Homebrew 构建安装：
 
 ```bash
-brew tap wuuJiawei/stoat https://github.com/wuuJiawei/stoat
+brew tap wuuJiawei/stoat git@github.com:wuuJiawei/stoat.git
 brew install --HEAD stoat
+brew services start stoat
 ```
 
-版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。
+版本 Tag 会自动生成 Apple Silicon / Intel 压缩包、SHA-256 校验和和 Sigstore 无密钥签名包。当前没有 Apple Developer ID，因此 Release 二进制尚未进行 Apple 公证。仓库仍为 Private，只能作为已授权用户的私有 Tap 使用；公开发布条件见 [docs/HOMEBREW.md](docs/HOMEBREW.md)。
 
 ```bash
-cosign verify-blob stoat-v0.5.0-darwin-arm64.tar.gz \
-  --bundle stoat-v0.5.0-darwin-arm64.tar.gz.sigstore.json \
+cosign verify-blob stoat-v0.8.0-darwin-arm64.tar.gz \
+  --bundle stoat-v0.8.0-darwin-arm64.tar.gz.sigstore.json \
   --certificate-identity-regexp='^https://github.com/wuuJiawei/stoat/.github/workflows/release.yml@refs/tags/v[0-9].*$' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
@@ -100,9 +107,12 @@ cosign verify-blob stoat-v0.5.0-darwin-arm64.tar.gz \
 ```text
 cmd/stoat              CLI 入口
 internal/app           扫描编排、去重、排序
+internal/action        launchd 安全操作、回滚和审计
 internal/collector     macOS 数据采集
 internal/executil      外部命令安全边界
 internal/model         统一领域模型
+internal/monitor       基线、差异事件和历史记录
+internal/diagnostics   运行状态与 Unified Log 诊断
 internal/parser        launchd / cron / BTM 解析
 internal/signing       文件属性与代码签名
 internal/risk          纯函数规则引擎

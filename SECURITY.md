@@ -18,6 +18,8 @@ Scanning is read-only. State-changing commands support launchd agents and daemon
 - launchd actions require a confirmation token bound to the current item, domain and configuration SHA-256.
 - Action state uses private directories, pre-operation backups, no-follow file opens, rollback and post-action verification.
 - System launchd actions require the caller to already be root; Stoat never elevates itself.
+- Monitoring snapshots and events are stored in private directories; incomplete scans never advance the baseline.
+- Unified Log queries use an escaped predicate argument without a shell, bounded time/output and bounded parsed entries.
 
 ## Reporting
 
