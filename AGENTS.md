@@ -67,6 +67,8 @@ or explicitly mark it unsupported.
 - `internal/diagnostics/`: runtime state and Unified Log diagnostics.
 - `internal/tui/`: category, list, detail, and action UI. It must reuse the
   action layer instead of duplicating business rules.
+- `internal/updatecheck/`: bounded, read-only release version lookup used by
+  the interactive TUI.
 - `internal/executil/`: command allowlist, shell-free execution, deadlines,
   and output limits.
 - `schemas/`: public JSON schemas.

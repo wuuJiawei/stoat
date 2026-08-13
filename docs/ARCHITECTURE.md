@@ -17,6 +17,13 @@ macOS sources
   -> TUI / table / JSON
 ```
 
+The default TUI also starts an independent, read-only update check after
+initialization. It fetches the fixed GitHub `latest.txt` release asset with a
+short deadline and a bounded response, validates a stable semantic version,
+then delivers the result to the TUI as a message. Update-check failure never
+blocks scanning or navigation, and no scan results, paths, or user data are
+sent with the request.
+
 ### Collectors
 
 Collector 只负责定位来源和取得原始数据。每个 Collector 独立返回 `Items + Warnings`，不以单点失败终止扫描。
@@ -65,6 +72,7 @@ Enricher 按固定顺序执行，每个阶段使用有界并发且局部失败�
 5. 所有外部命令和完整扫描均有 deadline。
 6. Collector、Parser、Enricher 和 Risk 层没有写入系统状态的能力。
 7. 唯一写入边界是 action 层，必须经过 plan、备份、确认、执行、验证和审计。
+8. 版本检查只允许访问代码中固定的 HTTPS 地址，限制重定向、响应大小和执行时间；返回内容是不可信输入，必须经过稳定语义版本校验。
 
 ## 演进约束
 
@@ -105,3 +113,7 @@ launchd 停用、隔离、恢复、确认令牌、备份、失败回滚、恢复
 ### v1.1（已完成）
 
 TUI 增加 launchd 操作菜单；CLI 与 TUI 统一支持停用、启用、隔离、可恢复删除和受限应用卸载。卸载仅移动证据链明确的 App Bundle 到废纸篓，操作仍经过确认、摘要复核、备份、审计、验证和失败回滚。
+
+### v1.2（已完成）
+
+默认 TUI 增加 Stoat 自有终端标识、项目地址、用途说明和当前版本展示，并以非阻塞方式检查稳定版更新。网络异常不会影响扫描、CLI 或 JSON 输出。

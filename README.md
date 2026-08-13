@@ -26,6 +26,7 @@ Stoat 是一个安全优先的 macOS 持久化检查与管理工具。它把登�
 - **统一发现**：扫描 Login Items、Background Task Management、LaunchAgents、LaunchDaemons 和 cron。
 - **清晰归属**：结合 `.app` 路径、`Info.plist`、签名、文件属性和 `launchctl` 状态解释来源。
 - **交互管理**：按“分类 → 列表 → 详情 → 操作”浏览，支持停用、启用、隔离、移除启动项和卸载已确认归属的应用。
+- **终端品牌页**：启动时展示 Stoat Logo、项目地址、当前版本，并异步提示可用的新版本。
 - **持续观察**：保存快照、比较配置变化、记录历史事件，并结合 Unified Log 生成诊断信息。
 - **安全操作**：强确认、私有备份、操作后验证、审计、失败回滚；应用只移动到废纸篓。
 - **自动化友好**：提供表格、JSON、CSV 和 JSON 事件流，支持 Intel 与 Apple Silicon。

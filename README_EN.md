@@ -26,6 +26,7 @@ Stoat is a security-first macOS persistence inspector and manager. It brings log
 - **Unified discovery**: Scan Login Items, Background Task Management, LaunchAgents, LaunchDaemons, and cron.
 - **Evidence-based attribution**: Explain ownership with `.app` paths, `Info.plist`, signatures, file attributes, and live `launchctl` state.
 - **Interactive management**: Navigate through category, list, detail, and action screens; disable, enable, quarantine, remove a startup item, or uninstall an attributed application.
+- **Terminal landing screen**: Show the Stoat logo, project URL, current version, and a non-blocking update notice when a newer release is available.
 - **Change tracking**: Save snapshots, compare configuration changes, retain event history, and combine runtime state with Unified Log diagnostics.
 - **Safe actions**: Strong confirmation, private backups, post-action verification, audit records, and rollback on failure; applications move to Trash.
 - **Automation friendly**: Table, JSON, CSV, and JSON event-stream output on Intel and Apple Silicon Macs.
