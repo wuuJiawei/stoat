@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/wuuJiawei/stoat/internal/collector"
@@ -10,23 +12,26 @@ import (
 )
 
 type Model struct {
-	allItems      []model.PersistenceItem
-	items         []model.PersistenceItem
-	warnings      []collector.Warning
-	loader        Loader
-	action        ActionHandler
-	menuCursor    int
-	cursor        int
-	actionCursor  int
-	actions       []actionDefinition
-	pending       actionDefinition
-	confirmText   string
-	resultMessage string
-	resultError   string
-	screen        screen
-	loaded        bool
-	width         int
-	height        int
+	allItems       []model.PersistenceItem
+	items          []model.PersistenceItem
+	warnings       []collector.Warning
+	loader         Loader
+	action         ActionHandler
+	menuCursor     int
+	cursor         int
+	actionCursor   int
+	actions        []actionDefinition
+	pending        actionDefinition
+	confirmText    string
+	resultMessage  string
+	resultError    string
+	currentVersion string
+	latestVersion  string
+	updateChecker  UpdateChecker
+	screen         screen
+	loaded         bool
+	width          int
+	height         int
 }
 
 type Loader func() ([]model.PersistenceItem, []collector.Warning)
@@ -42,6 +47,22 @@ const (
 )
 
 type ActionHandler func(ActionKind, model.PersistenceItem) (string, error)
+
+type UpdateChecker func(context.Context, string) (string, error)
+
+type Option func(*Model)
+
+func WithVersion(version string) Option {
+	return func(model *Model) {
+		model.currentVersion = version
+	}
+}
+
+func WithUpdateChecker(checker UpdateChecker) Option {
+	return func(model *Model) {
+		model.updateChecker = checker
+	}
+}
 
 type screen uint8
 
@@ -99,24 +120,57 @@ type actionCompletedMsg struct {
 	warnings []collector.Warning
 }
 
-func New(items []model.PersistenceItem, warnings []collector.Warning) Model {
-	return Model{
+type updateCheckedMsg struct {
+	latest string
+}
+
+func New(items []model.PersistenceItem, warnings []collector.Warning, options ...Option) Model {
+	result := Model{
 		allItems: append([]model.PersistenceItem(nil), items...),
 		warnings: append([]collector.Warning(nil), warnings...),
 		loaded:   true,
 		screen:   screenMenu,
 	}
+	applyOptions(&result, options)
+	return result
 }
 
-func NewWithLoader(loader Loader) Model {
-	return Model{loader: loader, screen: screenMenu}
+func NewWithLoader(loader Loader, options ...Option) Model {
+	result := Model{loader: loader, screen: screenMenu}
+	applyOptions(&result, options)
+	return result
 }
 
-func NewWithActions(loader Loader, handler ActionHandler) Model {
-	return Model{loader: loader, action: handler, screen: screenMenu}
+func NewWithActions(loader Loader, handler ActionHandler, options ...Option) Model {
+	result := Model{loader: loader, action: handler, screen: screenMenu}
+	applyOptions(&result, options)
+	return result
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func applyOptions(model *Model, options []Option) {
+	for _, option := range options {
+		if option != nil {
+			option(model)
+		}
+	}
+}
+
+func (m Model) Init() tea.Cmd {
+	if m.updateChecker == nil || m.currentVersion == "" || m.currentVersion == "dev" {
+		return nil
+	}
+	checker := m.updateChecker
+	current := m.currentVersion
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		latest, err := checker(ctx, current)
+		if err != nil {
+			return updateCheckedMsg{}
+		}
+		return updateCheckedMsg{latest: latest}
+	}
+}
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch value := message.(type) {
@@ -141,6 +195,8 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.screen = screenResult
+	case updateCheckedMsg:
+		m.latestVersion = value.latest
 	case tea.KeyMsg:
 		key := value.String()
 		if key == "ctrl+c" || (key == "q" && m.screen != screenApplying) {

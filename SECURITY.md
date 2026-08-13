@@ -21,6 +21,9 @@ Scanning is read-only. State-changing commands support launchd agents and daemon
 - System launchd actions require the caller to already be root; Stoat never elevates itself.
 - Monitoring snapshots and events are stored in private directories; incomplete scans never advance the baseline.
 - Unified Log queries use an escaped predicate argument without a shell, bounded time/output and bounded parsed entries.
+- The optional TUI update check requests only the fixed GitHub `latest.txt`
+  release asset over HTTPS, uses a short deadline and bounded response, sends
+  no scan results or user data, and fails silently when unavailable.
 - The release installer requires HTTPS, verifies SHA-256, allowlists archive entries, rejects symlink targets, installs atomically, and never invokes `sudo`.
 - A GitHub acceleration proxy is only a transport source; trusted checksums should be delivered independently through `stoat.lighting.pub`.
 

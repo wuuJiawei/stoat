@@ -29,6 +29,7 @@ import (
 	"github.com/wuuJiawei/stoat/internal/risk"
 	snapshotfile "github.com/wuuJiawei/stoat/internal/snapshot"
 	"github.com/wuuJiawei/stoat/internal/tui"
+	"github.com/wuuJiawei/stoat/internal/updatecheck"
 )
 
 var version = "dev"
@@ -104,6 +105,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 			return filterItems(report.Items, options.category, options.risk, options.minimumRisk), report.Warnings
 		}
 		manager := action.NewManager(home, options.dataDir, executil.NewExecRunner(10*time.Second, 8<<20), strconv.Itoa(os.Getuid()))
+		checker := updatecheck.New(2 * time.Second)
 		interactive := tui.NewWithActions(loader, func(kind tui.ActionKind, item model.PersistenceItem) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -116,7 +118,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 				return "", applyErr
 			}
 			return fmt.Sprintf("%s completed · operation %s", kind, operation.ID), nil
-		})
+		}, tui.WithVersion(version), tui.WithUpdateChecker(checker.Latest))
 		program := tea.NewProgram(interactive, tea.WithAltScreen())
 		_, err = program.Run()
 		return err

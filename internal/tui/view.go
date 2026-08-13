@@ -11,6 +11,8 @@ import (
 var (
 	titleStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#E8E8E8"))
 	mutedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#777777"))
+	brandStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#9FE870"))
+	linkStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#8CCFFF"))
 	selectedStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#F2D675"))
 	highStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF6B6B"))
 	attentionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#F2B84B"))
@@ -59,9 +61,14 @@ func (m Model) listView() string {
 
 func (m Model) menuView() string {
 	var output strings.Builder
-	output.WriteString(titleStyle.Render("Stoat · macOS Persistence Inspector"))
-	output.WriteString("\n")
-	output.WriteString(mutedStyle.Render("Choose what you want to inspect"))
+	output.WriteString(m.brandView())
+	if m.latestVersion != "" {
+		output.WriteString("\n\n")
+		output.WriteString(attentionStyle.Render("Update " + m.latestVersion + " available"))
+		output.WriteString(mutedStyle.Render(" · run the install command again"))
+	}
+	output.WriteString("\n\n")
+	output.WriteString(titleStyle.Render("Choose what you want to inspect"))
 	output.WriteString("\n\n")
 	for index, section := range sectionDefinitions {
 		marker := "  "
@@ -83,6 +90,30 @@ func (m Model) menuView() string {
 	}
 	output.WriteString("\n" + mutedStyle.Render("↑↓/jk navigate  1–5/Enter open  q quit"))
 	return output.String()
+}
+
+func (m Model) brandView() string {
+	logo := brandStyle.Render(strings.Join([]string{
+		" ____  _              _",
+		"/ ___|| |_ ___   __ _| |_",
+		"\\___ \\| __/ _ \\ / _` | __|",
+		" ___) | || (_) | (_| | |_",
+		"|____/ \\__\\___/ \\__,_|\\__|",
+	}, "\n"))
+	version := m.currentVersion
+	if version == "" {
+		version = "dev"
+	}
+	details := strings.Join([]string{
+		"",
+		linkStyle.Render("https://github.com/wuuJiawei/stoat"),
+		brandStyle.Render("Inspect and manage what runs on your Mac."),
+		mutedStyle.Render("Version " + version),
+	}, "\n")
+	if m.width > 0 && m.width < 82 {
+		return logo + "\n" + details
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, logo, "   ", details)
 }
 
 func (m Model) loadingView() string {

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -25,6 +27,58 @@ func TestLazyModelShowsCategoryMenuBeforeScanning(t *testing.T) {
 	}
 	if strings.Contains(view, "Login Helper") {
 		t.Fatalf("item leaked into category menu: %q", view)
+	}
+}
+
+func TestMenuShowsStoatBrandAddressTaglineAndVersion(t *testing.T) {
+	m := NewWithLoader(nil, WithVersion("v1.2.0"))
+	view := m.View()
+	for _, expected := range []string{
+		"____", "https://github.com/wuuJiawei/stoat",
+		"Inspect and manage what runs on your Mac.", "Version v1.2.0",
+	} {
+		if !strings.Contains(view, expected) {
+			t.Fatalf("brand view missing %q: %q", expected, view)
+		}
+	}
+}
+
+func TestAsyncUpdateCheckShowsNewVersionWithoutBlockingInitialView(t *testing.T) {
+	calls := 0
+	m := NewWithLoader(nil,
+		WithVersion("v1.2.0"),
+		WithUpdateChecker(func(ctx context.Context, current string) (string, error) {
+			calls++
+			if current != "v1.2.0" {
+				t.Fatalf("unexpected current version: %q", current)
+			}
+			return "v1.3.0", nil
+		}),
+	)
+	if strings.Contains(m.View(), "Update v1.3.0") || calls != 0 {
+		t.Fatal("update check blocked the initial view")
+	}
+	command := m.Init()
+	if command == nil {
+		t.Fatal("expected asynchronous update command")
+	}
+	updated, _ := updateModel(t, m, command())
+	if calls != 1 || !strings.Contains(updated.View(), "Update v1.3.0 available") ||
+		!strings.Contains(updated.View(), "run the install command again") {
+		t.Fatalf("update notice missing: calls=%d view=%q", calls, updated.View())
+	}
+}
+
+func TestFailedUpdateCheckStaysSilent(t *testing.T) {
+	m := NewWithLoader(nil,
+		WithVersion("v1.2.0"),
+		WithUpdateChecker(func(context.Context, string) (string, error) {
+			return "", errors.New("offline")
+		}),
+	)
+	updated, _ := updateModel(t, m, m.Init()())
+	if strings.Contains(updated.View(), "Update ") {
+		t.Fatalf("failed check leaked into UI: %q", updated.View())
 	}
 }
 
