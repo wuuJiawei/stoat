@@ -108,7 +108,7 @@ launchd 停用、隔离、恢复、确认令牌、备份、失败回滚、恢复
 
 ### v1.0（已完成）
 
-固化命令和 JSON schema v1，增加经过校验的一键安装器、GitHub / `lighting.pub` / 国内镜像分发约定、离线安装集成测试及完整发布待办。公开 Homebrew、域名部署和 Apple 公证是外部发布 Feature，不阻塞源码达到 v1 功能边界。
+固化命令和 JSON schema v1，增加基于 `raw.githubusercontent.com` 和 GitHub Release 的经过校验的一键安装器、离线安装集成测试及完整发布待办。Apple 公证是外部发布 Feature，不阻塞源码达到 v1 功能边界。
 
 ### v1.1（已完成）
 

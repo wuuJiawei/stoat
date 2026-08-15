@@ -61,7 +61,6 @@ jobs:
           go test -race ./...
           bash -n scripts/*.sh
           bash scripts/install_test.sh
-          ruby -c Formula/stoat.rb
       - name: Build archives
         if: steps.prepare.outputs.publish == 'true'
         env:
@@ -80,7 +79,7 @@ jobs:
           cd dist
           shasum -a 256 stoat-*.tar.gz > checksums.txt
           printf '%s\n' "$VERSION" > latest.txt
-          cp ../scripts/install.sh ../scripts/install-cn.sh .
+          cp ../scripts/install.sh .
       - name: Sign archives with Sigstore
         if: steps.prepare.outputs.publish == 'true'
         run: |
@@ -91,4 +90,4 @@ jobs:
         if: steps.prepare.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ steps.prepare.outputs.version }}" dist/stoat-*.tar.gz dist/stoat-*.sigstore.json dist/checksums.txt dist/latest.txt dist/install.sh dist/install-cn.sh --verify-tag --generate-notes
+        run: gh release create "${{ steps.prepare.outputs.version }}" dist/stoat-*.tar.gz dist/stoat-*.sigstore.json dist/checksums.txt dist/latest.txt dist/install.sh --verify-tag --generate-notes

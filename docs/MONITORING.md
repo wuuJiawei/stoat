@@ -18,13 +18,6 @@ stoat watch --json
 stoat changes --json
 ```
 
-通过 Homebrew 安装后可持续运行：
-
-```bash
-brew services start stoat
-brew services stop stoat
-```
-
 ## 诊断
 
 ```bash

@@ -4,10 +4,6 @@ set -eu
 repository="${STOAT_REPOSITORY:-wuuJiawei/stoat}"
 version="${STOAT_VERSION:-}"
 install_dir="${STOAT_INSTALL_DIR:-${HOME}/.local/bin}"
-metadata_base="${STOAT_METADATA_BASE:-}"
-download_base="${STOAT_DOWNLOAD_BASE:-}"
-checksum_base="${STOAT_CHECKSUM_BASE:-}"
-github_proxy="${STOAT_GITHUB_PROXY:-}"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'stoat installer: %s\n' "$*" >&2; exit 1; }
@@ -17,10 +13,6 @@ usage() {
 Usage: install.sh [options]
   --version VERSION          install an exact version, for example v1.0.0
   --install-dir DIRECTORY    default: ~/.local/bin
-  --metadata-base URL        base containing latest.txt
-  --download-base URL        base containing VERSION/archive
-  --checksum-base URL        trusted base containing VERSION/checksums.txt
-  --github-proxy URL         HTTPS prefix for GitHub archive downloads
   -h, --help                 show help
 EOF
 }
@@ -55,13 +47,6 @@ download() {
 
 resolve_latest() {
     destination="$1"
-    if [ -n "$metadata_base" ]; then
-        require_https_url "$metadata_base" "metadata base"
-        download "${metadata_base%/}/latest.txt" "$destination"
-        tr -d '[:space:]' < "$destination"
-        return
-    fi
-
     api_url="https://api.github.com/repos/${repository}/releases/latest"
     download "$api_url" "$destination"
     tag=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$destination" | head -n 1)
@@ -71,29 +56,11 @@ resolve_latest() {
 
 archive_url() {
     asset_name="$1"
-    if [ -n "$download_base" ]; then
-        printf '%s/%s/%s\n' "${download_base%/}" "$version" "$asset_name"
-        return
-    fi
-    canonical="https://github.com/${repository}/releases/download/${version}/${asset_name}"
-    if [ -n "$github_proxy" ]; then
-        require_https_url "$github_proxy" "GitHub proxy"
-        printf '%s%s\n' "${github_proxy%/}/" "$canonical"
-        return
-    fi
-    printf '%s\n' "$canonical"
+    printf 'https://github.com/%s/releases/download/%s/%s\n' "$repository" "$version" "$asset_name"
 }
 
 checksums_url() {
-    if [ -n "$checksum_base" ]; then
-        printf '%s/%s/checksums.txt\n' "${checksum_base%/}" "$version"
-    elif [ -n "$metadata_base" ]; then
-        printf '%s/%s/checksums.txt\n' "${metadata_base%/}" "$version"
-    elif [ -n "$download_base" ]; then
-        printf '%s/%s/checksums.txt\n' "${download_base%/}" "$version"
-    else
-        printf 'https://github.com/%s/releases/download/%s/checksums.txt\n' "$repository" "$version"
-    fi
+    printf 'https://github.com/%s/releases/download/%s/checksums.txt\n' "$repository" "$version"
 }
 
 verify_archive() {
@@ -150,15 +117,11 @@ install_binary() {
 main() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            --version|--install-dir|--metadata-base|--download-base|--checksum-base|--github-proxy)
+            --version|--install-dir)
                 [ "$#" -ge 2 ] || fail "$1 requires a value"
                 case "$1" in
                     --version) version="$2" ;;
                     --install-dir) install_dir="$2" ;;
-                    --metadata-base) metadata_base="$2" ;;
-                    --download-base) download_base="$2" ;;
-                    --checksum-base) checksum_base="$2" ;;
-                    --github-proxy) github_proxy="$2" ;;
                 esac
                 shift 2
                 ;;

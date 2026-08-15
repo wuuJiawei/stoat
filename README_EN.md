@@ -60,6 +60,8 @@ Inside the interactive interface:
 
 Run the installer again to upgrade; uninstalling the previous version is not required.
 
+Stoat supports only the `raw.githubusercontent.com` installation entrypoint shown above.
+
 ## Common Commands
 
 ```bash
@@ -104,30 +106,6 @@ Stoat reads several macOS persistence sources but does not allow changes to all 
 - External commands, file sizes, output, and full scans are bounded and time-limited. A failing source returns a warning without hiding other results.
 
 See [SECURITY.md](SECURITY.md) and [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md) for the threat model and recovery protocol.
-
-## Other Installation Methods
-
-### Build from Source
-
-```bash
-git clone https://github.com/wuuJiawei/stoat.git
-cd stoat
-make verify
-make build
-./bin/stoat
-```
-
-Go 1.25+ is required.
-
-### Homebrew HEAD (Experimental)
-
-```bash
-brew tap wuuJiawei/stoat https://github.com/wuuJiawei/stoat.git
-brew install --HEAD stoat
-brew services start stoat
-```
-
-A stable project tap and `homebrew/core` formula are not published yet. See [Homebrew status](docs/HOMEBREW.md). Plans for `stoat.lighting.pub` and mainland China mirrors are documented in [Installation](docs/INSTALLATION.md).
 
 ## Compatibility and Data
 
