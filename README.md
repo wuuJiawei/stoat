@@ -60,6 +60,8 @@ stoat
 
 再次运行安装脚本即可升级，无需先卸载。
 
+Stoat 仅提供上述 `raw.githubusercontent.com` 安装入口。
+
 ## 常用命令
 
 ```bash
@@ -104,30 +106,6 @@ Stoat 会读取多种 macOS 持久化来源，但不会对所有来源开放修�
 - 外部命令、文件大小、输出和整体扫描都有边界与超时；单一来源失败会产生 warning，不会隐藏其他结果。
 
 安全模型与恢复流程见 [SECURITY.md](SECURITY.md) 和 [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md)。
-
-## 其他安装方式
-
-### 从源码构建
-
-```bash
-git clone https://github.com/wuuJiawei/stoat.git
-cd stoat
-make verify
-make build
-./bin/stoat
-```
-
-需要 Go 1.25+。
-
-### Homebrew HEAD（实验性）
-
-```bash
-brew tap wuuJiawei/stoat https://github.com/wuuJiawei/stoat.git
-brew install --HEAD stoat
-brew services start stoat
-```
-
-稳定版自有 Tap 与 `homebrew/core` 尚未发布，进度见 [Homebrew 说明](docs/HOMEBREW.md)。`stoat.lighting.pub` 和国内镜像的规划见 [安装文档](docs/INSTALLATION.md)。
 
 ## 兼容性与数据
 

@@ -25,7 +25,6 @@ Scanning is read-only. State-changing commands support launchd agents and daemon
   release asset over HTTPS, uses a short deadline and bounded response, sends
   no scan results or user data, and fails silently when unavailable.
 - The release installer requires HTTPS, verifies SHA-256, allowlists archive entries, rejects symlink targets, installs atomically, and never invokes `sudo`.
-- A GitHub acceleration proxy is only a transport source; trusted checksums should be delivered independently through `stoat.lighting.pub`.
 
 ## Reporting
 
@@ -35,4 +34,4 @@ Do not include credentials, personal paths, complete crontabs, or private applic
 
 See [docs/SAFE_ACTIONS.md](docs/SAFE_ACTIONS.md) for the action threat model, protected paths, confirmation protocol and recovery procedure.
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for installer and mirror trust boundaries.
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for the installer trust boundary.

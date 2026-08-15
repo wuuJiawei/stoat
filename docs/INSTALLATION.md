@@ -4,7 +4,7 @@
 
 仓库已公开。GitHub 一键安装依赖稳定版 Release；发布工作流会根据根目录 `VERSION` 自动创建 Tag 和 Release。
 
-## GitHub 一键安装
+## 唯一安装方式
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | sh
@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/instal
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/install.sh | \
-  sh -s -- --version v1.0.0
+  sh -s -- --version v1.2.0
 ```
 
 安装器默认写入 `~/.local/bin/stoat`，不会调用 `sudo` 或修改 Shell 配置。自定义目录：
@@ -26,58 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/wuuJiawei/stoat/main/scripts/instal
 
 目标目录必须已对当前用户可写。
 
-## lighting.pub 一键安装
-
-域名部署完成后：
-
-```bash
-curl -fsSL https://stoat.lighting.pub/install.sh | sh
-```
-
-站点需按以下路径发布不可变文件：
-
-```text
-/install.sh
-/install-cn.sh
-/releases/latest.txt
-/releases/v1.0.0/checksums.txt
-/releases/v1.0.0/stoat-v1.0.0-darwin-arm64.tar.gz
-/releases/v1.0.0/stoat-v1.0.0-darwin-amd64.tar.gz
-```
-
-使用域名分发：
-
-```bash
-curl -fsSL https://stoat.lighting.pub/install.sh | \
-  sh -s -- \
-    --metadata-base https://stoat.lighting.pub/releases \
-    --download-base https://stoat.lighting.pub/releases
-```
-
-## 国内 GitHub 加速镜像
-
-推荐由 `stoat.lighting.pub` 同步 GitHub Release，提供安装脚本、校验和与归档：
-
-```bash
-curl -fsSL https://stoat.lighting.pub/install-cn.sh | sh
-```
-
-如果不在 `lighting.pub` 保存归档，可通过环境变量指定经过评估的 HTTPS GitHub 代理：
-
-```bash
-curl -fsSL https://stoat.lighting.pub/install-cn.sh | \
-  STOAT_GITHUB_PROXY=https://your-github-proxy.example/ sh
-```
-
-也可直接指定固定版本和代理：
-
-```bash
-curl -fsSL https://stoat.lighting.pub/install.sh | \
-  STOAT_GITHUB_PROXY=https://your-github-proxy.example/ \
-  sh -s -- --version v1.0.0
-```
-
-代理 URL 会作为前缀拼接到完整 GitHub Release URL。第三方代理可能记录请求或替换内容；安装器会校验 SHA-256，但应让 `checksums.txt` 来自你控制的 `stoat.lighting.pub`。
+不提供自有域名、第三方镜像或 GitHub 代理安装入口。
 
 ## 升级与卸载
 
@@ -85,13 +34,6 @@ curl -fsSL https://stoat.lighting.pub/install.sh | \
 
 ```bash
 rm ~/.local/bin/stoat
-```
-
-Homebrew 安装使用：
-
-```bash
-brew uninstall stoat
-brew untap wuuJiawei/stoat
 ```
 
 用户数据位于 `~/Library/Application Support/Stoat`，卸载二进制不会自动删除备份、审计或监控历史。

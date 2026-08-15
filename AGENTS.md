@@ -74,7 +74,6 @@ or explicitly mark it unsupported.
 - `schemas/`: public JSON schemas.
 - `testdata/`: fixed, redacted, and reproducible fixtures.
 - `scripts/`: installation, verification, and release helpers.
-- `Formula/`: experimental Homebrew HEAD formula.
 - `docs/`: product, security, architecture, compatibility, installation, and
   roadmap documentation.
 
@@ -209,12 +208,13 @@ for system behavior.
   and Sigstore bundles.
 - Do not move existing tags, overwrite release assets, or publish with failing
   CI.
-- Before release, verify consistency among `VERSION`, `CHANGELOG.md`, installer
-  scripts, Formula, and documentation examples.
+- Before release, verify consistency among `VERSION`, `CHANGELOG.md`, the
+  installer script, and documentation examples.
 - Apple Developer ID signing and notarization are not enabled. Never describe
   Sigstore as a replacement for Gatekeeper notarization.
-- Until `stoat.lighting.pub`, a mainland China mirror, and a stable Homebrew
-  tap are actually online, documentation must label them accordingly.
+- Official installation documentation must use the
+  `raw.githubusercontent.com` entrypoint. Do not add alternate domains,
+  mirrors, GitHub proxies, or Homebrew installation instructions.
 
 ## GitHub Operations
 
