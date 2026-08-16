@@ -5,6 +5,7 @@
 </p>
 
 <div align="center">
+  <img src="assets/stoat-logo.png" alt="Stoat Logo" width="180">
   <h1>Stoat</h1>
   <p><em>看清并管理每一个在 Mac 上自动运行的项目。</em></p>
 </div>

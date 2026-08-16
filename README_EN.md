@@ -5,6 +5,7 @@
 </p>
 
 <div align="center">
+  <img src="assets/stoat-logo.png" alt="Stoat Logo" width="180">
   <h1>Stoat</h1>
   <p><em>See and manage everything that starts automatically on your Mac.</em></p>
 </div>
