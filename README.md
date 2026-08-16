@@ -5,6 +5,7 @@
 </p>
 
 <div align="center">
+  <img src="assets/stoat-mark.png" alt="Stoat Logo" width="160">
   <h1>Stoat</h1>
   <p><em>看清并管理每一个在 Mac 上自动运行的项目。</em></p>
 </div>
@@ -20,6 +21,10 @@
 Stoat 是一个安全优先的 macOS 持久化检查与管理工具。它把登录项、`launchd`、后台任务和定时任务放进统一视图，解释项目从哪里来、当前是否运行、为什么值得关注，并在安全边界内提供停用、启用、隔离、移除与恢复能力。
 
 > Stoat 提供复核线索，不是恶意软件检测器，也不会把“高风险”直接判定为“病毒”。
+
+<p align="center">
+  <img src="assets/stoat-terminal-preview.png" alt="Stoat 终端界面" width="900">
+</p>
 
 ## 功能
 

@@ -5,6 +5,7 @@
 </p>
 
 <div align="center">
+  <img src="assets/stoat-mark.png" alt="Stoat Logo" width="160">
   <h1>Stoat</h1>
   <p><em>See and manage everything that starts automatically on your Mac.</em></p>
 </div>
@@ -20,6 +21,10 @@
 Stoat is a security-first macOS persistence inspector and manager. It brings login items, `launchd` jobs, background tasks, and scheduled jobs into one view, explains where they came from and whether they are running, and provides controlled disable, enable, quarantine, removal, and recovery actions.
 
 > Stoat provides evidence for review. It is not a malware scanner and does not treat a high-risk score as proof of malware.
+
+<p align="center">
+  <img src="assets/stoat-terminal-preview.png" alt="Stoat terminal interface" width="900">
+</p>
 
 ## Features
 
