@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" rx="24" fill="#0d1117"/>
+  <path d="M24 0h1152a24 24 0 0 1 24 24v44H0V24A24 24 0 0 1 24 0z" fill="#1b1f24"/>
+  <circle cx="34" cy="34" r="8" fill="#ff5f57"/>
+  <circle cx="60" cy="34" r="8" fill="#febc2e"/>
+  <circle cx="86" cy="34" r="8" fill="#28c840"/>
+  <text x="600" y="41" text-anchor="middle" fill="#8b949e" font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="16">stoat — 120×40</text>
+
+  <g font-family="SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="24">
+    <text xml:space="preserve" fill="#9fe870" font-weight="700">
+      <tspan x="58" y="122"> ____  _              _</tspan>
+      <tspan x="58" y="154">/ ___|| |_ ___   __ _| |_</tspan>
+      <tspan x="58" y="186">\___ \| __/ _ \ / _` | __|</tspan>
+      <tspan x="58" y="218"> ___) | || (_) | (_| | |_</tspan>
+      <tspan x="58" y="250">|____/ \__\___/ \__,_|\__|</tspan>
+    </text>
+
+    <text x="626" y="132" fill="#8ccfff" font-size="20" font-weight="700">https://github.com/wuuJiawei/stoat</text>
+    <text x="626" y="174" fill="#9fe870" font-size="20">Inspect and manage what runs on your Mac.</text>
+    <text x="626" y="216" fill="#777777" font-size="20">Version v1.2.0</text>
+
+    <text x="58" y="332" fill="#e8e8e8" font-weight="700">Choose what you want to inspect</text>
+
+    <text x="58" y="390" fill="#f2d675" font-weight="700">› 1  Startup Items</text>
+    <text x="96" y="422" fill="#777777" font-size="20">Runs at login or system startup</text>
+
+    <text x="58" y="470" fill="#e8e8e8">  2  Scheduled Tasks</text>
+    <text x="96" y="502" fill="#777777" font-size="20">Runs on a timer or calendar schedule</text>
+
+    <text x="58" y="550" fill="#e8e8e8">  3  Background Items</text>
+    <text x="96" y="582" fill="#777777" font-size="20">Runs or remains active in the background</text>
+
+    <text x="650" y="390" fill="#e8e8e8">  4  Suspicious Items</text>
+    <text x="688" y="422" fill="#777777" font-size="20">Requires attention or has high risk</text>
+
+    <text x="650" y="470" fill="#e8e8e8">  5  All Items</text>
+    <text x="688" y="502" fill="#777777" font-size="20">Every detected persistence item</text>
+
+    <text x="58" y="700" fill="#777777" font-size="20">↑↓/jk navigate  1–5/Enter open  q quit</text>
+  </g>
+</svg>
